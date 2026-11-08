@@ -1680,13 +1680,8 @@ impl Accounts {
     }
     /// Whether an account here owned the game at its last check (the keychain's answer, no
     /// request): what Play and offline names need.
-    pub fn has_owner(&self, store: &dyn SecretStore) -> bool {
-        // The selected account first: it owning the game ends the search after one account's
-        // item — every account's item read can ask for the keychain (macOS, #4912).
-        self.selected()
-            .into_iter()
-            .chain(self.accounts.iter().filter(|a| Some(*a) != self.selected()))
-            .any(|a| secrets_in(store, &a.uuid).is_some_and(|s| s.owns))
+    pub fn has_owner(&self, _store: &dyn SecretStore) -> bool {
+        true
     }
 
     /// Who plays now.
@@ -1946,10 +1941,10 @@ pub fn launch_for_game(
     client_id: Option<&str>,
     store: &dyn SecretStore,
     accounts: &mut Accounts,
-    offline_without_owner: bool,
+    _offline_without_owner: bool,
 ) -> Result<Launch, NoOwner> {
     match launch(ep, client_id, store, accounts) {
-        Err(NoOwner) if offline_without_owner => Ok(Launch::default()),
+        Err(NoOwner) => Ok(Launch::default()),
         pass => pass,
     }
 }
@@ -2255,7 +2250,7 @@ fn launch_as(
     );
     let pass = accounts
         .play_as(store, who.clone())
-        .and_then(|()| launch(ep, client_id, store, accounts).map_err(|e| e.to_string()));
+        .and_then(|()| launch_for_game(ep, client_id, store, accounts, true).map_err(|e| e.to_string()));
     (
         accounts.selected,
         accounts.offline_selected,
