@@ -418,7 +418,9 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
   the newest game build for that platform; Intel macOS skips only the install step while no matching build is
   available yet, and Windows ARM64 installs the x64 build (under emulation) from a Nightly without an ARM64 one.
 - Published with `--latest=false`: the repository's latest release stays a game release. Notes list the pull
-  requests under New and Fixed; Kira posts launcher releases without pinging.
+  requests under New and Fixed; Kira posts launcher releases without pinging. The publish step uses the
+  `RELEASE_PUBLISH_TOKEN` Actions secret (a fine-grained token with Contents read/write for this repository);
+  `GITHUB_TOKEN` may be denied release creation by GitHub even when workflow write permissions are enabled.
 - Windows also publishes `horizon-launcher-setup.exe` (x64) and `horizon-launcher-setup-arm64.exe`, the launcher's
   binary under another name: with no
   arguments it opens the per-user setup (`launcher/src/installer.rs`) instead of Home, and

@@ -427,9 +427,13 @@ jobs:
           done
       - name: Publish ${{ needs.decide.outputs.tag }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
           TAG: ${{ needs.decide.outputs.tag }}
         run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::Set the RELEASE_PUBLISH_TOKEN Actions secret to a fine-grained token with Contents: read and write access to this repository."
+            exit 1
+          fi
           signature=(); [[ -f dist/SHA256SUMS.sig ]] && signature=(dist/SHA256SUMS.sig)
           gh release create "$TAG" --target "${{ needs.decide.outputs.head }}" --title "$(cat notes/title.txt)" \
             --notes-file notes/body.md --latest=false dist/horizon-launcher-* dist/SHA256SUMS "${signature[@]}"
