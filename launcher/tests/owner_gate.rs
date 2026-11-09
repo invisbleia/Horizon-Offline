@@ -44,6 +44,7 @@ fn text(out: &Output) -> String {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: the CLI plays without an owner"]
 fn the_cli_refuses_to_play_without_an_owner() {
     let root = home("cli");
     let out = launcher(&root, &["play"]).output().unwrap();
@@ -59,6 +60,7 @@ fn the_cli_refuses_to_play_without_an_owner() {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: the MCP server plays without an owner"]
 fn the_mcp_server_refuses_to_play_without_an_owner() {
     let root = home("mcp");
     let mut child = launcher(&root, &["mcp"])
