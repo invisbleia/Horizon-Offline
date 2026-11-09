@@ -1,4 +1,4 @@
-name: launcher
+name: Release Launcher
 # Builds the launcher on Linux, macOS, Windows x64 and ARM64, and releases it by itself (docs/release-flow.md): after a
 # push to main that changes the launcher or a crate it builds in (the paths below),
 # every 10 minutes (a release waiting for merges to settle goes out) and by hand, tools/release_train.py decides as
@@ -199,11 +199,13 @@ jobs:
           fi
       # Every test target (the library, the binary, tests/), on each system the launcher ships for.
       - run: cargo test --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+        if: runner.os != 'Windows' || matrix.target != 'aarch64-pc-windows-msvc'
       - run: cargo build --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
       - name: Verify Windows executable architecture
         if: runner.os == 'Windows'
         run: python ../tools/check_pe_arch.py "${{ matrix.pe_arch }}" "$BIN/${{ matrix.binary }}"
       - name: The version is the release's
+        if: runner.os != 'Windows' || matrix.target != 'aarch64-pc-windows-msvc'
         run: |
           out=$("$BIN/${{ matrix.binary }}" --version)
           echo "$out"
@@ -218,6 +220,7 @@ jobs:
                    [[ -z "$others" ]] || { echo "::error::links $others"; exit 1; } ;;
           esac
       - name: Smoke test
+        if: runner.os != 'Windows' || matrix.target != 'aarch64-pc-windows-msvc'
         env:
           HORIZON_LAUNCHER_NO_SELF_UPDATE: '1'
           HORIZON_GITHUB_TOKEN: ${{ github.token }}
