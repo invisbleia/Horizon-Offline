@@ -10,6 +10,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 pub const REPO: &str = "horizon-rust/horizon";
+pub const LAUNCHER_REPO: &str = "invisbleia/horizon-cracked";
 pub const README_URL: &str = "https://github.com/horizon-rust/horizon/blob/main/launcher/README.md";
 /// The players' page on connecting an AI agent (the website's docs/agents.md).
 pub const AGENT_DOCS_URL: &str = "https://playhorizon.dev/docs/agents";
@@ -666,11 +667,15 @@ pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
     release_order(a).cmp(&release_order(b))
 }
 
-/// Every published release of the repository, both kinds, as GitHub's JSON (kept on disk with its
-/// ETag, and read through Kira's mirror past GitHub's rate limit: [`crate::github`]).
+/// Every published release of Horizon's repository as GitHub's JSON (kept on disk with its ETag,
+/// and read through Kira's mirror past GitHub's rate limit: [`crate::github`]).
 fn release_list() -> Result<serde_json::Value, String> {
+    release_list_from(REPO)
+}
+
+fn release_list_from(repo: &str) -> Result<serde_json::Value, String> {
     crate::github::json(&format!(
-        "https://api.github.com/repos/{REPO}/releases?per_page=100"
+        "https://api.github.com/repos/{repo}/releases?per_page=100"
     ))
 }
 
@@ -791,7 +796,7 @@ fn launcher_releases_in_with(
     if found.iter().any(|r| r.asset.is_some()) {
         return found;
     }
-    let api = format!("https://api.github.com/repos/{REPO}");
+    let api = format!("https://api.github.com/repos/{LAUNCHER_REPO}");
     let mut tags = Vec::new();
     for prefix in [LAUNCHER_TAG_PREFIX, OLD_LAUNCHER_TAG_PREFIX] {
         // Every `launcher@` tag is newer than every `launcher-v` one: those only when there is none.
@@ -3285,22 +3290,30 @@ fn launcher_update_from(releases: &[Release], own: &str) -> Option<Release> {
         .cloned()
 }
 
-/// Load the game's release list and both update kinds from the same GitHub response.
-/// Publish the game releases before any fallback lookups for older launcher tags, so those
-/// lookups cannot hold up the release pages or opening animation. A list error reaches both.
+/// Load game and launcher releases from their respective repositories.
+/// Publish game releases before launcher fallbacks, so those lookups cannot hold up the release
+/// pages or opening animation. A game-list error reaches the release page; a launcher-list error
+/// reaches the update status.
 pub fn releases_and_updates(
     on_releases: impl FnOnce(Result<Vec<Release>, String>),
 ) -> Result<Updates, String> {
-    releases_and_updates_with(release_list, installed, launcher_releases_in, on_releases)
+    releases_and_updates_with(
+        release_list,
+        || release_list_from(LAUNCHER_REPO),
+        installed,
+        launcher_releases_in,
+        on_releases,
+    )
 }
 
 fn releases_and_updates_with(
-    load: impl FnOnce() -> Result<serde_json::Value, String>,
+    load_games: impl FnOnce() -> Result<serde_json::Value, String>,
+    load_launchers: impl FnOnce() -> Result<serde_json::Value, String>,
     installed: impl FnOnce() -> Vec<String>,
     launchers: impl FnOnce(&serde_json::Value) -> Vec<Release>,
     on_releases: impl FnOnce(Result<Vec<Release>, String>),
 ) -> Result<Updates, String> {
-    let list = match load() {
+    let list = match load_games() {
         Ok(list) => list,
         Err(e) => {
             on_releases(Err(e.clone()));
@@ -3312,9 +3325,10 @@ fn releases_and_updates_with(
     let horizon = horizon_update(&installable_updates(&releases), &installed_versions)
         .or_else(|| architecture_update(&releases, &installed_versions));
     on_releases(Ok(releases));
+    let launcher_list = load_launchers()?;
     Ok(Updates {
         horizon,
-        launcher: launcher_update(&launchers(&list)),
+        launcher: launcher_update(&launchers(&launcher_list)),
     })
 }
 
@@ -3889,7 +3903,12 @@ pub fn stage_update(release: &Release, progress: impl Fn(f32)) -> Result<Option<
     {
         return Ok(None);
     }
-    let sha256 = signed_digest(&release.tag, launcher_asset().unwrap_or_default())?;
+    let sha256 = crate::signed::launcher_digest(
+        &release.tag,
+        launcher_asset().unwrap_or_default(),
+        &horizon_release_sign::trusted_keys(),
+        fetch_small,
+    )?;
     let work = update_work_dir();
     remove_abandoned_stages(&work, std::time::SystemTime::now(), process_alive);
     let stage = new_stage_folder(&work)?;
@@ -6033,6 +6052,7 @@ pub fn {f}("
         let lookup = |with_new: bool| {
             asked.borrow_mut().clear();
             launcher_releases_in_with(&serde_json::json!([]), |url| {
+                assert!(url.starts_with(&format!("https://api.github.com/repos/{LAUNCHER_REPO}/")));
                 asked
                     .borrow_mut()
                     .push(url.rsplit('/').next().unwrap_or("").to_string());

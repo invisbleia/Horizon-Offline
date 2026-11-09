@@ -42,10 +42,11 @@ fn baseline(load: impl Fn() -> Result<serde_json::Value, String>) -> (Vec<Releas
     (releases, updates)
 }
 
-fn shared(load: impl FnOnce() -> Result<serde_json::Value, String>) -> (Vec<Release>, Updates) {
+fn shared(load: impl Fn() -> Result<serde_json::Value, String>) -> (Vec<Release>, Updates) {
     let mut releases = None;
     let updates = releases_and_updates_with(
-        load,
+        || load(),
+        || load(),
         installed_fixture,
         |list| parse_releases(list, LAUNCHER_ASSET, is_launcher_tag),
         |r| releases = Some(r.unwrap()),
@@ -55,7 +56,7 @@ fn shared(load: impl FnOnce() -> Result<serde_json::Value, String>) -> (Vec<Rele
 }
 
 #[test]
-fn one_response_preserves_both_startup_results() {
+fn separate_game_and_launcher_responses_preserve_startup_results() {
     let text = fixture();
     let requests = AtomicUsize::new(0);
     let load = || {
@@ -65,7 +66,7 @@ fn one_response_preserves_both_startup_results() {
     let old = baseline(load);
     assert_eq!(requests.swap(0, Ordering::Relaxed), 2);
     let new = shared(load);
-    assert_eq!(requests.load(Ordering::Relaxed), 1);
+    assert_eq!(requests.load(Ordering::Relaxed), 2);
     assert_eq!(
         serde_json::to_value(old).unwrap(),
         serde_json::to_value(new).unwrap()
@@ -82,6 +83,7 @@ fn errors_reach_releases_and_updates_without_fallback() {
         let mut published = None;
         let result = releases_and_updates_with(
             || Err(error.into()),
+            || panic!("launcher feed is not loaded after game feed fails"),
             || panic!("no installed scan after failure"),
             |_| panic!("no fallback after failure"),
             |r| published = Some(r),
@@ -96,10 +98,12 @@ fn publish_games_before_older_launcher_fallback() {
     let events = RefCell::new(Vec::new());
     let result = releases_and_updates_with(
         || Ok(serde_json::json!([{"tag_name": "v2026.10.14", "assets": []}])),
+        || Ok(serde_json::json!([])),
         Vec::new,
-        |list| {
-            launcher_releases_in_with(list, |url| {
+        |_| {
+            launcher_releases_in_with(&serde_json::json!([]), |url| {
                 assert_eq!(events.borrow().first(), Some(&"releases"));
+                assert!(url.starts_with(&format!("https://api.github.com/repos/{LAUNCHER_REPO}/")));
                 events.borrow_mut().push("fallback");
                 if url.contains("matching-refs") {
                     Ok(serde_json::json!([{"ref": "refs/tags/launcher@99.0.0"}]))
@@ -133,8 +137,9 @@ fn failed_launcher_fallback_keeps_game_result_and_checks_stay_fresh() {
                 requests.fetch_add(1, Ordering::Relaxed);
                 Ok(serde_json::json!([{"tag_name": format!("v2026.10.{day}")}]))
             },
+            || Ok(serde_json::json!([])),
             Vec::new,
-            |list| launcher_releases_in_with(list, |_| Err("offline".into())),
+            |_| launcher_releases_in_with(&serde_json::json!([]), |_| Err("offline".into())),
             |r| published = Some(r.unwrap()),
         )
         .unwrap();

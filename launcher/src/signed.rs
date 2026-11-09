@@ -4,12 +4,17 @@
 //! with the SHA-256 pinned for it in legacy-releases.txt (a rollback). Anything else is refused
 //! with a message saying why.
 
-use crate::backend::REPO;
+use crate::backend::{LAUNCHER_REPO, REPO};
 use horizon_release_sign::{PublicKey, SIGNATURE, SIGNATURE_V2, SUMS};
 
 /// Where a release's attached file downloads from (GitHub's fixed address for it).
 pub fn asset_url(tag: &str, name: &str) -> String {
     format!("https://github.com/{REPO}/releases/download/{tag}/{name}")
+}
+
+/// Where a launcher release's attached file downloads from.
+pub fn launcher_asset_url(tag: &str, name: &str) -> String {
+    format!("https://github.com/{LAUNCHER_REPO}/releases/download/{tag}/{name}")
 }
 
 /// The signed SHA-256 of `asset` in release `tag`, fetching its SHA256SUMS and SHA256SUMS.sig
@@ -21,11 +26,31 @@ pub fn digest(
     keys: &[PublicKey],
     fetch: impl Fn(&str) -> Result<Option<Vec<u8>>, String>,
 ) -> Result<String, String> {
+    digest_at(tag, asset, keys, fetch, asset_url)
+}
+
+/// The launcher's signed SHA-256, read from its own release repository.
+pub fn launcher_digest(
+    tag: &str,
+    asset: &str,
+    keys: &[PublicKey],
+    fetch: impl Fn(&str) -> Result<Option<Vec<u8>>, String>,
+) -> Result<String, String> {
+    digest_at(tag, asset, keys, fetch, launcher_asset_url)
+}
+
+fn digest_at(
+    tag: &str,
+    asset: &str,
+    keys: &[PublicKey],
+    fetch: impl Fn(&str) -> Result<Option<Vec<u8>>, String>,
+    url: fn(&str, &str) -> String,
+) -> Result<String, String> {
     if let Some(hex) = horizon_release_sign::legacy_digest(tag, asset) {
         return Ok(hex.to_owned());
     }
-    let sums = fetch(&asset_url(tag, SUMS))?;
-    let signature = fetch(&asset_url(tag, SIGNATURE))?
+    let sums = fetch(&url(tag, SUMS))?;
+    let signature = fetch(&url(tag, SIGNATURE))?
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
     horizon_release_sign::signed_digest(tag, asset, sums.as_deref(), signature.as_deref(), keys)
 }
@@ -58,6 +83,43 @@ pub fn nightly_digest(
 mod tests {
     use super::*;
     use horizon_release_sign::{sha256_hex, sums_file, SigningKey};
+
+    #[test]
+    fn game_and_launcher_release_assets_use_their_own_repositories() {
+        assert_eq!(
+            asset_url("v0.2.0", SUMS),
+            "https://github.com/horizon-rust/horizon/releases/download/v0.2.0/SHA256SUMS"
+        );
+        assert_eq!(
+            launcher_asset_url("launcher@0.2.0", SUMS),
+            "https://github.com/invisbleia/horizon-cracked/releases/download/launcher@0.2.0/SHA256SUMS"
+        );
+    }
+
+    #[test]
+    fn launcher_checksums_are_fetched_from_the_launcher_repository() {
+        let (key, _) = SigningKey::generate().unwrap();
+        let asset = "horizon-launcher-linux-x86_64.tar.gz";
+        let sums = sums_file(&[(asset.into(), sha256_hex(b"launcher"))]);
+        let signature = key.sign("launcher@2099.0.0", sums.as_bytes());
+        let fetch = |url: &str| -> Result<Option<Vec<u8>>, String> {
+            assert!(url.starts_with(
+                "https://github.com/invisbleia/horizon-cracked/releases/download/launcher@2099.0.0/"
+            ));
+            Ok(Some(
+                if url.ends_with(SIGNATURE) {
+                    signature.clone()
+                } else {
+                    sums.clone()
+                }
+                .into_bytes(),
+            ))
+        };
+        assert_eq!(
+            launcher_digest("launcher@2099.0.0", asset, &[key.public()], fetch),
+            Ok(sha256_hex(b"launcher"))
+        );
+    }
 
     #[test]
     fn the_launcher_ships_with_a_release_key() {
