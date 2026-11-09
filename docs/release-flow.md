@@ -395,7 +395,7 @@ the same for a server.
 
 ## Launcher releases
 
-`.github/workflows/launcher.yml` releases the launcher the same way. It starts on a push to main that changes
+`.github/workflows/releaselauncher.yml` releases the launcher the same way. It starts on a push to main that changes
 `launcher/`, `crates/horizon-prepare/` or `crates/horizon-theme/` (what the launcher builds in), every hour at :47,
 and by hand; pushes to `launcher` and `launcher-*` branches only build.
 
@@ -411,12 +411,14 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
   so `--version`, the window, the User-Agent and the self-update comparison all use them. Each build checks
   `--version` says it.
 - Linux on GitHub `ubuntu-22.04`, Windows x64 on `windows-latest`, Windows ARM64 on `windows-11-vs2026-arm`, and
-  macOS on the Mac mini's runner; each builds the launcher and checks its libraries. Run
-  `gh workflow run launcher --ref main -f test_only=true` to run `cargo test --release --locked` on Linux without
+  macOS on `macos-latest`; each builds the launcher and checks its libraries. Run
+  `gh workflow run "Release Launcher" --ref main -f test_only=true` to run `cargo test --release --locked` on Linux without
   building release assets. A normal release is selected only from main's newest commit with green checks;
   `-f force=true` selects the current commit and publishes immediately without running tests. The smoke test installs
   the newest game build for that platform; Intel macOS skips only the install step while no matching build is
   available yet, and Windows ARM64 installs the x64 build (under emulation) from a Nightly without an ARM64 one.
+- When starting a release manually, the optional `added`, `removed` and `fixed` inputs write those sections in the
+  release notes. Leave all three blank to keep the automatically generated pull-request notes.
 - Published with `--latest=false`: the repository's latest release stays a game release. Notes list the pull
   requests under New and Fixed; Kira posts launcher releases without pinging. The publish step uses the
   `RELEASE_PUBLISH_TOKEN` Actions secret (a fine-grained token with Contents read/write for this repository);
@@ -435,7 +437,7 @@ it out too), which `PLAYERS_FOOTER` repeats above the disclaimer at the end, and
 launcher installs: Linux (…)") that GitHub shows in place of the file names. Everything that downloads matches
 the asset's name, which is unchanged.
 
-Starting by hand, pausing and rolling back work as for the game (`gh workflow run launcher …`,
+Starting by hand, pausing and rolling back work as for the game (`gh workflow run "Release Launcher" …`,
 `RELEASES_PAUSED`, `gh release edit launcher@X.Y.Z --draft`). Launchers older than the withdrawn release then
 see the previous one as the newest; launchers that already updated keep running.
 

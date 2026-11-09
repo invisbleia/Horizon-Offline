@@ -38,7 +38,7 @@ on:
       - 'crates/horizon-theme/**'
       - 'packaging/linux/**'
       - 'packaging/icons/**'
-      - '.github/workflows/launcher.yml'
+      - '.github/workflows/releaselauncher.yml'
   schedule:
     - cron: '7-59/10 * * * *'
   workflow_dispatch:
@@ -51,6 +51,18 @@ on:
         description: Build and publish a release now without running tests
         type: boolean
         default: false
+      added:
+        description: Changes added in this release; leave blank to use automatic notes
+        type: string
+        required: false
+      removed:
+        description: Changes removed in this release
+        type: string
+        required: false
+      fixed:
+        description: Changes fixed in this release
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -404,9 +416,24 @@ jobs:
       - name: Notes
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ADDED: ${{ inputs.added }}
+          RELEASE_REMOVED: ${{ inputs.removed }}
+          RELEASE_FIXED: ${{ inputs.fixed }}
         run: |
           python3 tools/release_train.py notes --kind launcher --tag "${{ needs.decide.outputs.tag }}" \
             --head "${{ needs.decide.outputs.head }}" --out notes > /dev/null
+          if [[ -n "$RELEASE_ADDED" || -n "$RELEASE_REMOVED" || -n "$RELEASE_FIXED" ]]; then
+            : > notes/body.md
+            if [[ -n "$RELEASE_ADDED" ]]; then
+              printf '## Added\n\n%s\n\n' "$RELEASE_ADDED" >> notes/body.md
+            fi
+            if [[ -n "$RELEASE_REMOVED" ]]; then
+              printf '## Removed\n\n%s\n\n' "$RELEASE_REMOVED" >> notes/body.md
+            fi
+            if [[ -n "$RELEASE_FIXED" ]]; then
+              printf '## Fixed\n\n%s\n\n' "$RELEASE_FIXED" >> notes/body.md
+            fi
+          fi
           { echo "## $(cat notes/title.txt)"; echo; cat notes/body.md; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/download-artifact@v8
         with:
