@@ -1,8 +1,10 @@
 # Horizon in the Browser — Design
 
 Date: 2026-11-09
-Status: draft, awaiting operator approval
-Fork: invisbleia/horizon-cracked (this repository)
+Status: superseded here — the project lives in its own repository, **MineRust**
+(separate folder and repo), and its canonical design is
+`docs/design.md` in that repository. This copy keeps the platform analysis
+that led there; the MineRust copy is the one that gets updated.
 
 ## Intent and why
 
