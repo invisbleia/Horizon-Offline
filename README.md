@@ -14,15 +14,16 @@ allows you to use horizon launcher without microsoft account
 
 ## Launcher downloads
 
-Choose the download for your computer from
-[the GitHub Releases page](https://github.com/invisbleia/horizon-cracked/releases):
+Choose the download for your computer from the
+[GitHub Releases page](https://github.com/invisbleia/horizon-cracked/releases):
 
-- **Windows:** download `horizon-launcher-setup.exe`. For an ARM-based Windows computer, use
-  `horizon-launcher-setup-arm64.exe` instead; it may not be available in every release.
-- **macOS (Apple Silicon):** download `horizon-launcher-macos-arm64.dmg`.
-- **macOS (Intel):** download `horizon-launcher-macos-x64.dmg`.
-- **Linux:** download `horizon-launcher-linux-x86_64.AppImage` for the easiest install-and-run
-  experience. The `horizon-launcher-linux-x86_64.tar.gz` archive is also available.
+| Operating system | Which file to download |
+| --- | --- |
+| Windows | `horizon-launcher-setup.exe` |
+| Windows (ARM-based PC) | `horizon-launcher-setup-arm64.exe` (may not be available in every release) |
+| macOS (Apple Silicon) | `horizon-launcher-macos-arm64.dmg` |
+| macOS (Intel) | `horizon-launcher-macos-x64.dmg` |
+| Linux | `horizon-launcher-linux-x86_64.AppImage` (recommended) or `horizon-launcher-linux-x86_64.tar.gz` |
 
 <p align="center">
   <img src="docs/media/readme/valley.webp" alt="A river valley with a plains village, savanna hills and a cherry grove, seen from above with a long view distance" width="100%">
