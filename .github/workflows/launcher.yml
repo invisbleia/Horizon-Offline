@@ -84,8 +84,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASES_PAUSED: ${{ vars.RELEASES_PAUSED }}
-          # A push or a run off main builds its own commit; otherwise main's newest commit with green checks.
-          HEAD_SHA: ${{ (github.event_name == 'push' || steps.mode.outputs.dry_run == 'true') && github.sha || '' }}
+          # A push or a run off main builds its own commit; a forced hand run too (the fork's checks stay red,
+          # and the build runs the launcher's tests on every platform itself); otherwise main's newest commit
+          # with green checks.
+          HEAD_SHA: ${{ (github.event_name == 'push' || steps.mode.outputs.dry_run == 'true' || inputs.force) && github.sha || '' }}
           FORCE: ${{ inputs.force && 'yes' || '' }}
         run: |
           python3 tools/release_train.py decide --kind launcher ${HEAD_SHA:+--head "$HEAD_SHA"} ${FORCE:+--force} | tee decision.json
