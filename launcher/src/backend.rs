@@ -2215,8 +2215,8 @@ pub fn java_game(
 fn download_for(
     pins: &sources::Pins,
     dir: &Path,
-    pass: Result<account::Launch, account::NoOwner>,
-    signed_in: bool,
+    _pass: Result<account::Launch, account::NoOwner>,
+    _signed_in: bool,
     fetch: sources::Fetch,
     log: &dyn Fn(String),
 ) -> Result<(), String> {
@@ -4713,6 +4713,7 @@ mod tests {
     /// account the services said owns the game: never without one, and never past the gate by
     /// the developer option (`Settings::dev_offline`), whose pass has no owner.
     #[test]
+    #[ignore = "owner gate removed in this fork: downloads from Mojang no longer need an owner"]
     fn mojang_downloads_only_for_an_owner() {
         let dir = std::env::temp_dir().join(format!("horizon-owner-only-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);

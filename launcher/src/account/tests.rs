@@ -608,6 +608,7 @@ fn a_renewed_sign_in_the_keychain_refuses_still_plays_and_says_so() {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: plays without an owner, so there is no block to test"]
 fn a_no_from_the_services_blocks_at_once() {
     let (_, ep) = mock(|m| m.owns_game = false);
     let store = MemoryStore::default();
@@ -691,6 +692,7 @@ fn any_owner_opens_the_gate_and_the_one_who_plays_brings_the_session() {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: offline names no longer need an owner beside them"]
 fn offline_names_play_only_beside_an_owner() {
     let store = MemoryStore::default();
     let mut accounts = Accounts::default();
@@ -714,6 +716,7 @@ fn offline_names_play_only_beside_an_owner() {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: launch_for_game never refuses for a missing owner"]
 fn the_developer_option_off_is_the_owner_gate() {
     let store = MemoryStore::default();
     let mut accounts = Accounts::default();
@@ -729,6 +732,7 @@ fn the_developer_option_off_is_the_owner_gate() {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: has_owner always answers yes, the no-owner half is gone"]
 fn the_developer_option_plays_offline_names_without_an_owner() {
     let store = MemoryStore::default();
     let mut accounts = Accounts::default();
@@ -1032,6 +1036,7 @@ impl SecretStore for Reading<'_> {
 }
 
 #[test]
+#[ignore = "owner gate removed in this fork: has_owner reads no keychain items at all"]
 fn has_owner_asks_the_selected_account_first() {
     let store = MemoryStore::default();
     // The owner is second in the list but selected: its item alone is read.
