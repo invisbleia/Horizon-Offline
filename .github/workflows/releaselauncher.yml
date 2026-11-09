@@ -18,8 +18,8 @@ name: Release Launcher
 # Windows ships each architecture's launcher in its ZIP (what a launcher updates itself from) and as
 # horizon-launcher-setup.exe or horizon-launcher-setup-arm64.exe, which opens the per-user installer instead of Home
 # (launcher/src/installer.rs).
-#   gh workflow run launcher --ref <branch>                    # dry run: builds everything, publishes nothing
-#   gh workflow run launcher --ref main -f dry_run=false -f force=true
+#   gh workflow run "Release Launcher" --ref main -f test_only=true  # tests only; no release build
+#   gh workflow run "Release Launcher" --ref main -f force=true      # build and publish now; no tests
 
 on:
   push:
@@ -43,12 +43,12 @@ on:
     - cron: '7-59/10 * * * *'
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: Build everything and write the notes, but publish nothing
+      test_only:
+        description: Run the launcher test suite only; do not build release assets or publish
         type: boolean
-        default: true
+        default: false
       force:
-        description: Release even without launcher changes, before merges settle or while paused
+        description: Build and publish a release now without running tests
         type: boolean
         default: false
 
@@ -65,29 +65,26 @@ env:
 
 jobs:
   decide:
+    if: ${{ inputs.test_only != true || inputs.force == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       release: ${{ steps.decide.outputs.release }}
+      publish: ${{ steps.decide.outputs.publish }}
       tag: ${{ steps.decide.outputs.tag }}
       head: ${{ steps.decide.outputs.head }}
       version: ${{ steps.decide.outputs.version }}
-      dry_run: ${{ steps.mode.outputs.dry_run }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - id: mode
-        # Off main every run is a dry run (a launcher branch's push only builds).
-        run: echo "dry_run=${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}" >> "$GITHUB_OUTPUT"
       - id: decide
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASES_PAUSED: ${{ vars.RELEASES_PAUSED }}
-          # A push or a run off main builds its own commit; a forced hand run too (the fork's checks stay red,
-          # and the build runs the launcher's tests on every platform itself); otherwise main's newest commit
-          # with green checks.
-          HEAD_SHA: ${{ (github.event_name == 'push' || steps.mode.outputs.dry_run == 'true' || inputs.force) && github.sha || '' }}
+          # Branch builds and forced releases use their selected commit; normal main releases use the newest
+          # commit with green checks.
+          HEAD_SHA: ${{ (github.ref != 'refs/heads/main' || inputs.force) && github.sha || '' }}
           FORCE: ${{ inputs.force && 'yes' || '' }}
         run: |
           python3 tools/release_train.py decide --kind launcher ${HEAD_SHA:+--head "$HEAD_SHA"} ${FORCE:+--force} | tee decision.json
@@ -95,11 +92,35 @@ jobs:
           tag=$(jq -r '.tag' decision.json)
           version=${tag#launcher-v}
           echo "version=${version#launcher@}" >> "$GITHUB_OUTPUT"
-          # A dry run (and a launcher branch's push) builds whatever the decision.
-          if [[ "${{ steps.mode.outputs.dry_run }}" == true ]]; then
+          if [[ "${{ github.ref }}" != refs/heads/main ]]; then
+            # Builds from launcher branches are useful for validation, but never publish a release.
             echo "release=true" >> "$GITHUB_OUTPUT"
             echo "head=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=$(jq -r '.release' decision.json)" >> "$GITHUB_OUTPUT"
           fi
+
+  test:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_only == true && inputs.force != true }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: launcher
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux libraries GPUI links to
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libfontconfig-dev libvulkan-dev libasound2-dev
+      - name: Test launcher
+        run: cargo test --release --locked
 
   build:
     needs: decide
@@ -197,9 +218,6 @@ jobs:
             echo "::notice::No Metal toolchain on this runner: GPUI compiles its shaders at run time"
             echo "LAUNCHER_FEATURES=gpui_platform/runtime_shaders" >> "$GITHUB_ENV"
           fi
-      # Every test target (the library, the binary, tests/), on each system the launcher ships for.
-      - run: cargo test --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
-        if: ${{ !(runner.os == 'Windows' && matrix.target == 'aarch64-pc-windows-msvc') }}
       - run: cargo build --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
       - name: Verify Windows executable architecture
         if: runner.os == 'Windows'
@@ -337,6 +355,7 @@ jobs:
 
   sign:
     needs: [decide, build]
+    if: needs.decide.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # This fork signs with a throwaway key (EPHEMERAL): upstream's `release` environment and its
@@ -373,6 +392,7 @@ jobs:
 
   release:
     needs: [decide, build, sign]
+    if: needs.decide.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -408,7 +428,6 @@ jobs:
             [[ -f "dist/$file" ]] || echo "::warning::$file is missing: this release goes out without it"
           done
       - name: Publish ${{ needs.decide.outputs.tag }}
-        if: needs.decide.outputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.decide.outputs.tag }}
@@ -416,11 +435,6 @@ jobs:
           signature=(); [[ -f dist/SHA256SUMS.sig ]] && signature=(dist/SHA256SUMS.sig)
           gh release create "$TAG" --target "${{ needs.decide.outputs.head }}" --title "$(cat notes/title.txt)" \
             --notes-file notes/body.md --latest=false dist/horizon-launcher-* dist/SHA256SUMS "${signature[@]}"
-      - name: Dry run, the release that would be published
-        if: needs.decide.outputs.dry_run == 'true'
-        run: |
-          echo "Would publish ${{ needs.decide.outputs.tag }} at ${{ needs.decide.outputs.head }}: $(cat notes/title.txt)"
-          ls -l dist
       - uses: actions/upload-artifact@v7
         with:
           name: launcher-release-notes
