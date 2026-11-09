@@ -14,6 +14,24 @@
   swapped in by renaming, then restarted); a bare `horizon-launcher` binary, as launchers before
   the app shipped, finds the binary inside the zip and replaces only itself.
 
+## Launcher release downloads by operating system
+
+The launcher release workflow publishes these files. Choose the architecture that matches the
+computer; the ZIP archives are also used by the launcher's self-updater.
+
+| Operating system | Release file | What it is for |
+| --- | --- | --- |
+| Linux x86_64 | `horizon-launcher-linux-x86_64.AppImage` | Download and run the standalone launcher; it can update itself. |
+| Linux x86_64 | `horizon-launcher-linux-x86_64.tar.gz` | Launcher binary archive, primarily used by the self-updater. |
+| macOS Apple Silicon (arm64) | `horizon-launcher-macos-arm64.dmg` | Installer: open the disk image and drag Horizon.app to Applications. |
+| macOS Apple Silicon (arm64) | `horizon-launcher-macos-arm64.zip` | Zipped Horizon.app, used by the self-updater. |
+| macOS Intel (x86_64) | `horizon-launcher-macos-x64.dmg` | Installer for Intel Macs: open the disk image and drag Horizon.app to Applications. |
+| macOS Intel (x86_64) | `horizon-launcher-macos-x64.zip` | Zipped Horizon.app, used by the self-updater. |
+| Windows x64 | `horizon-launcher-setup.exe` | Per-user installer. |
+| Windows x64 | `horizon-launcher-windows-x64.zip` | Launcher archive, used by the self-updater. |
+| Windows ARM64 | `horizon-launcher-setup-arm64.exe` | Per-user installer for ARM64 Windows. This asset may be absent if its build fails. |
+| Windows ARM64 | `horizon-launcher-windows-arm64.zip` | Launcher archive for ARM64 Windows, used by the self-updater. This asset may be absent if its build fails. |
+
 ## Signing and notarization
 
 Releases are signed with Ludovic's **Developer ID** ("Developer ID Application: Ludovic Marie
