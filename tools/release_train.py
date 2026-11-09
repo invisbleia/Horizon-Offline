@@ -97,7 +97,7 @@ PLAYERS = (PLAYERS_FOOTER + '<p>The launcher installs this version and keeps it 
            'people who host one.</p>')
 LAUNCHER_FOOTER = ("Your launcher updates itself. New here? On Linux take the .AppImage below, make it executable "
                    "and run it; on Windows and macOS download the archive, extract it and run `horizon-launcher` "
-                   "(Horizon.app on macOS). Website: https://playhorizon.dev")
+                   "(Horizon.app on macOS). Website: https://coming.soon")
 DISCLAIMER = "Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft."
 # An open issue with this label holds every game release (docs/release-flow.md). Only people who can triage the
 # repository can add it, and the issue's text is never read: its author could edit it afterwards.
