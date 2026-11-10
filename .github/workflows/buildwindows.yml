@@ -26,7 +26,8 @@ jobs:
 
       - name: Build the launcher
         working-directory: launcher
-        run: cargo build --release --locked
+        shell: bash
+        run: cargo build --release --locked ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
 
       - name: Upload Windows executables
         uses: actions/upload-artifact@v7
