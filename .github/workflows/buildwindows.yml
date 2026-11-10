@@ -2,6 +2,11 @@ name: buildwindows
 
 on:
   workflow_dispatch:
+    inputs:
+      msa_client_id:
+        description: Microsoft app client ID (optional; defaults to the repository variable)
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -14,6 +19,7 @@ jobs:
     env:
       RUSTFLAGS: -C target-feature=+crt-static
       HORIZON_TELEMETRY_URL: "off"
+      HORIZON_MSA_CLIENT_ID: ${{ inputs.msa_client_id || vars.HORIZON_MSA_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v7
 
@@ -29,14 +35,19 @@ jobs:
         shell: bash
         run: cargo build --release --locked ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
 
-      - name: Upload Windows executables
+      - name: Prepare the setup executable
+        working-directory: launcher
+        shell: bash
+        run: cp target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
+
+      - name: Upload launcher updater
         uses: actions/upload-artifact@v7
         with:
-          name: horizon-windows-test-executables
-          path: |
-            launcher/target/release/horizon-launcher.exe
+          name: horizon-launcher-update
+          path: launcher/target/release/horizon-launcher-setup.exe
           if-no-files-found: error
+          compression-level: 0
           retention-days: 7
 
       - name: Report artifact
-        run: echo "Download horizon-windows-test-executables from this workflow run's Artifacts section."
+        run: echo "Download and extract horizon-launcher-update, then run horizon-launcher-setup.exe."
