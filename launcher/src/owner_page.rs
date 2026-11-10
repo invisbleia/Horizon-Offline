@@ -515,13 +515,18 @@ impl Launcher {
         };
         if setup {
             card = card.child(
-                ui::button("owner-play-offline".into(), tr("Play offline").into(), Kind::Primary, &t)
-                    .h(px(44.))
-                    .mt(px(16.))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.choose_offline_player();
-                        cx.notify();
-                    })),
+                ui::button(
+                    "owner-play-offline".into(),
+                    tr("Play offline").into(),
+                    Kind::Primary,
+                    &t,
+                )
+                .h(px(44.))
+                .mt(px(16.))
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    this.choose_offline_player();
+                    cx.notify();
+                })),
             );
         }
         let later = ui::button("owner-later".into(), tr("Not now").into(), Kind::Ghost, &t)

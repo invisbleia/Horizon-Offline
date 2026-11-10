@@ -2248,9 +2248,9 @@ fn launch_as(
         accounts.offline_selected.clone(),
         accounts.offline.clone(),
     );
-    let pass = accounts
-        .play_as(store, who.clone())
-        .and_then(|()| launch_for_game(ep, client_id, store, accounts, true).map_err(|e| e.to_string()));
+    let pass = accounts.play_as(store, who.clone()).and_then(|()| {
+        launch_for_game(ep, client_id, store, accounts, true).map_err(|e| e.to_string())
+    });
     (
         accounts.selected,
         accounts.offline_selected,

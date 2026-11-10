@@ -50,8 +50,8 @@ fn digest_at(
         return Ok(hex.to_owned());
     }
     let sums = fetch(&url(tag, SUMS))?;
-    let signature = fetch(&url(tag, SIGNATURE))?
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+    let signature =
+        fetch(&url(tag, SIGNATURE))?.map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
     horizon_release_sign::signed_digest(tag, asset, sums.as_deref(), signature.as_deref(), keys)
 }
 

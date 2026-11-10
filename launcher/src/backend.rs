@@ -2232,9 +2232,8 @@ fn download_for(
         sources::Os::MacOs => "osx",
         sources::Os::Windows => "windows",
     };
-    mojang::download(pins, dir, os, 8, fetch, &mojang::CANCEL, log).map_err(|e| {
-        format!("\n  • Horizon tried to download {v} from Mojang, but: {e}")
-    })
+    mojang::download(pins, dir, os, 8, fetch, &mojang::CANCEL, log)
+        .map_err(|e| format!("\n  • Horizon tried to download {v} from Mojang, but: {e}"))
 }
 
 /// The Java home for this version: a runtime for precompiled exporters, a JDK for older
@@ -4462,7 +4461,10 @@ pub struct Settings {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub native_release: bool,
     /// Offline names are the default player choice; Mojang downloads still require an owning account.
-    #[serde(default = "default_dev_offline", skip_serializing_if = "is_default_dev_offline")]
+    #[serde(
+        default = "default_dev_offline",
+        skip_serializing_if = "is_default_dev_offline"
+    )]
     pub dev_offline: bool,
 }
 
@@ -4481,9 +4483,7 @@ impl Settings {
     pub fn parse(text: &str) -> Self {
         let mut value = match serde_json::from_str::<serde_json::Value>(text) {
             Ok(value) => value,
-            Err(_) if text.trim().is_empty() => {
-                serde_json::Value::Object(serde_json::Map::new())
-            }
+            Err(_) if text.trim().is_empty() => serde_json::Value::Object(serde_json::Map::new()),
             Err(_) => return Self::parse("{}"),
         };
         if let Some(fields) = value.as_object_mut() {
