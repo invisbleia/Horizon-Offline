@@ -331,16 +331,20 @@ Every game and launcher release carries `SHA256SUMS` (the archives' SHA-256, `sh
 so a signed list can't be reused under another tag.
 
 - A `sign` job of its own makes them: `tools/ci/sign_release.sh` runs the runner's `sha256sum` and OpenSSL and
-  nothing else. It is the only job that holds the private key, the `RELEASE_SIGNING_KEY` secret of the
-  repository's `release` environment, which only real releases from main enter (`environment:` is empty in dry
-  runs, which sign with a throwaway key). No code from the repository runs beside the key, so no pull request
-  can read it by changing what a build compiles; the key is in no file, no log and no password vault, and nobody
-  needs to read it.
-- The publish job then checks the signature the way launchers do (`horizon-release-sign verify --publishing`,
-  crates/horizon-release-sign), against the public keys built in from
-  `crates/horizon-release-sign/release-keys.txt`. While that file lists no key, releases go out with SHA256SUMS
-  alone and a warning (today's releases keep working). Once it lists one, a missing secret or a key it doesn't
-  list fails the release before anything is published, instead of publishing something launchers would refuse.
+  nothing else. Game releases use `RELEASE_SIGNING_KEY` from the `release` environment and the game keys in
+  `crates/horizon-release-sign/release-keys.txt`.
+- This fork's launcher releases use the separate `LAUNCHER_RELEASE_SIGNING_KEY` Actions secret and
+  `crates/horizon-release-sign/launcher-release-keys.txt`. The publish job verifies the signature against the
+  launcher keys before publishing; a missing secret or a key that is not listed there fails the release. The
+  launcher uses the game key for game downloads and the launcher key for its own updates.
+- To create or replace this fork's launcher key, generate it directly into the repository secret and a temporary
+  public-key file: `cargo run --locked -p horizon-release-sign -- keygen --public-out /tmp/launcher-key.pub |
+  gh secret set LAUNCHER_RELEASE_SIGNING_KEY --repo invisbleia/horizon-cracked`. Add the public key from that
+  file to `launcher-release-keys.txt` in the same change; never copy the private key into the repository or a chat.
+- Older launcher releases were signed with a temporary per-release key, not the persistent launcher key. An
+  installed launcher from that transition cannot verify the first persistent-key release, so install that release
+  once manually from the official launcher release page. After that, self-updates use the built-in persistent key.
+  Do not work around this by trusting a key shipped beside a release or by disabling signature verification.
 - Making the key: `tools/ci/new_release_key.sh` pipes a new key from `horizon-release-sign keygen` straight into
   `gh secret set RELEASE_SIGNING_KEY --env release` and prints only the public key, which then goes into
   release-keys.txt by pull request.
@@ -352,8 +356,8 @@ both. Those releases install only with exactly those files, whatever GitHub serv
 written once by `tools/ci/legacy_releases.py` from the SHA-256s GitHub computed at upload; it lists no signed
 release and never changes again (`--check` says whether it is complete).
 
-**Rotating the key** (a new key every year, or at once if the old one may have leaked). The publish job signs
-with every key the environment holds, `RELEASE_SIGNING_KEY` and `RELEASE_SIGNING_KEY_NEXT`, and the two names take
+**Rotating the game key** (a new key every year, or at once if the old one may have leaked). The publish job signs
+with every game key the environment holds, `RELEASE_SIGNING_KEY` and `RELEASE_SIGNING_KEY_NEXT`, and the two names take
 turns:
 
 1. `tools/ci/new_release_key.sh <the empty name>` makes the next key; add its public key to release-keys.txt
