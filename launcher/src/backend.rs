@@ -850,7 +850,7 @@ pub fn installable_updates(releases: &[Release]) -> Vec<Release> {
 pub const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(30 * 60);
 
 /// The community, sponsor and website links and the official server's address, from
-/// `launcher/links.json` on main, so they can change without a launcher release. An empty address
+/// this fork's `launcher/links.json`, so they can change without a launcher release. An empty address
 /// hides its button (an empty `official_server`: no official server offered).
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct Links {
@@ -868,9 +868,9 @@ impl Default for Links {
     /// What the launcher uses until (or unless) it can read links.json.
     fn default() -> Self {
         Self {
-            discord: "https://discord.gg/playhorizon".into(),
-            sponsor: "https://github.com/sponsors/ludovic111".into(),
-            website: "https://playhorizon.dev".into(),
+            discord: String::new(),
+            sponsor: String::new(),
+            website: "https://coming.soon".into(),
             official_server: crate::server_list::OFFICIAL_ADDRESS.into(),
             official_server_previous: crate::server_list::OFFICIAL_PREVIOUS
                 .iter()
@@ -914,7 +914,7 @@ impl Links {
 
 /// The links from main, or the built-in ones when offline.
 pub fn links() -> Links {
-    let url = format!("https://raw.githubusercontent.com/{REPO}/main/launcher/links.json");
+    let url = format!("https://raw.githubusercontent.com/{LAUNCHER_REPO}/main/launcher/links.json");
     get(&url)
         .ok()
         .and_then(|r| r.into_string().ok())
@@ -4403,6 +4403,9 @@ pub struct Settings {
     /// one now (the owner gate's screen).
     #[serde(default)]
     pub owner_notice_seen: bool,
+    /// The player chose an offline name or signed in from the first-run player picker.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub player_setup_seen: bool,
     /// Seconds a partner banner (the sidebar's card or the Servers page's banner) has been on
     /// screen, over every start, up to `partner::SEEN_BEFORE_HIDE`: only then can the player hide it.
     #[serde(default)]
@@ -4458,12 +4461,17 @@ pub struct Settings {
     /// An older file's switch for the release profile, read when `native_profile` is unset.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub native_release: bool,
-    /// Developer options (hidden: seven clicks on the sidebar's launcher version reveal them):
-    /// offline names play without an account that owns the game, in the window only
-    /// (`account::Accounts::play_as_with`, `account::launch_for_game`). Never a download: the game still
-    /// comes from the player's own install. Off by default, and absent from the file while off.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    /// Offline names are the default player choice; Mojang downloads still require an owning account.
+    #[serde(default = "default_dev_offline", skip_serializing_if = "is_default_dev_offline")]
     pub dev_offline: bool,
+}
+
+fn default_dev_offline() -> bool {
+    true
+}
+
+fn is_default_dev_offline(value: &bool) -> bool {
+    *value
 }
 
 impl Settings {
@@ -4471,8 +4479,12 @@ impl Settings {
         Self::parse(&fs::read_to_string(data_dir().join("settings.json")).unwrap_or_default())
     }
     pub fn parse(text: &str) -> Self {
-        let Ok(mut value) = serde_json::from_str::<serde_json::Value>(text) else {
-            return Self::default();
+        let mut value = match serde_json::from_str::<serde_json::Value>(text) {
+            Ok(value) => value,
+            Err(_) if text.trim().is_empty() => {
+                serde_json::Value::Object(serde_json::Map::new())
+            }
+            Err(_) => return Self::parse("{}"),
         };
         if let Some(fields) = value.as_object_mut() {
             // An appearance from a newer launcher is Dark, not a reason to lose every setting.
@@ -5578,9 +5590,17 @@ pub fn {f}("
     }
 
     #[test]
-    fn the_accent_is_violet_unless_picked_and_an_unknown_one_keeps_the_rest() {
+    fn the_accent_is_red_unless_picked_and_an_unknown_one_keeps_the_rest() {
         use crate::themes::Accent;
-        assert_eq!(Settings::parse("{}").accent, Accent::VIOLET);
+        assert_eq!(Settings::parse("{}").accent, Accent::RED);
+        assert!(Settings::parse("").dev_offline);
+        assert!(Settings::parse("{}").dev_offline);
+        assert!(!Settings::parse(r#"{"dev_offline":false}"#).dev_offline);
+        let offline_disabled = Settings {
+            dev_offline: false,
+            ..Settings::default()
+        };
+        assert!(!Settings::parse(&serde_json::to_string(&offline_disabled).unwrap()).dev_offline);
         let teal =
             Settings::parse(r#"{"accent": "teal", "background": "background-0123456789ab.png"}"#);
         assert_eq!(
@@ -5590,7 +5610,7 @@ pub fn {f}("
         let future = Settings::parse(r#"{"accent": "plaid", "game_args": "--x"}"#);
         assert_eq!(
             (future.accent, future.game_args.as_str()),
-            (Accent::VIOLET, "--x")
+            (Accent::RED, "--x")
         );
     }
 
@@ -6246,10 +6266,10 @@ pub fn {f}("
     #[test]
     fn links_fall_back_to_the_built_in_ones() {
         let defaults = Links::default();
-        assert_eq!(defaults.discord, "https://discord.gg/playhorizon");
-        assert_eq!(defaults.sponsor, "https://github.com/sponsors/ludovic111");
-        assert_eq!(defaults.website, "https://playhorizon.dev");
-        // The file on main says the same thing as the defaults.
+        assert_eq!(defaults.discord, "");
+        assert_eq!(defaults.sponsor, "");
+        assert_eq!(defaults.website, "https://coming.soon");
+        // This fork's links file says the same thing as the defaults.
         assert_eq!(Links::parse(include_str!("../links.json")), defaults);
         // Unreadable or missing, offline included: the defaults.
         assert_eq!(Links::parse(""), defaults);

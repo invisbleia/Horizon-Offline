@@ -5,13 +5,23 @@
 use super::*;
 
 impl Launcher {
-    /// Whether the screen covers the window: no owner, and either Play was refused or the player
-    /// hasn't read it yet. The data question comes first.
+    /// Whether the first-player picker or a refused Play covers the window.
     pub(crate) fn asking_owner(&self) -> bool {
-        (self.owner_shown() == Some(false) || sign_in_preview())
-            && (self.owner_screen_open || !self.settings.owner_notice_seen || sign_in_preview())
+        (self.player_setup_needed()
+            || self.owner_screen_open
+            || self.owner_shown() == Some(false)
+            || sign_in_preview())
+            && (self.player_setup_needed()
+                || self.owner_screen_open
+                || !self.settings.owner_notice_seen
+                || sign_in_preview())
             && !self.asking_consent()
             && self.opening.is_none()
+    }
+
+    fn player_setup_needed(&self) -> bool {
+        !self.settings.player_setup_seen
+            && matches!(self.accounts.player(), account::Player::GameName)
     }
 
     /// `owner` as the window shows it: the developer option that lets offline names play without
@@ -39,6 +49,16 @@ impl Launcher {
     pub(crate) fn owner_screen(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let t = self.theme;
         let n = t.night;
+        let setup = self.player_setup_needed();
+        let offline_field = setup.then(|| {
+            self.field(
+                servers_page::Field::OfflineName,
+                tr("A name, 3 to 16 letters"),
+                220.,
+                cx,
+            )
+            .into_any_element()
+        });
         let configured = account::client_id().is_some();
         // The screenshot preview shows a code without asking Microsoft for one.
         let state = match &self.sign_in_state {
@@ -50,8 +70,8 @@ impl Launcher {
             Some(SignInState::Done(Err(e))) => Shown::Error(e),
             Some(SignInState::Done(Ok(_))) | None => Shown::Idle,
         };
-        if crate::glass_ui::on() {
-            return self.glass_owner_screen(state, configured, cx);
+        if setup || crate::glass_ui::on() {
+            return self.glass_owner_screen(state, configured, setup, offline_field, cx);
         }
         let line = |s: &str, color: u32| {
             shell::text(theme::night::UI, shell::c(color))
@@ -279,6 +299,8 @@ impl Launcher {
         &self,
         state: Shown,
         configured: bool,
+        setup: bool,
+        offline_field: Option<AnyElement>,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         use crate::glass_ui::{self as ui, white};
@@ -300,7 +322,11 @@ impl Launcher {
             .w(px(520.))
             .max_w_full()
             .p(px(32.))
-            .child(ui::text(13., FontWeight::MEDIUM, ink::QUIET).child(tr("Microsoft account")))
+            .child(ui::text(13., FontWeight::MEDIUM, ink::QUIET).child(if setup {
+                tr("Offline names")
+            } else {
+                tr("Microsoft account")
+            }))
             .child(
                 div()
                     .mt(px(8.))
@@ -317,16 +343,28 @@ impl Launcher {
                     .flex()
                     .flex_col()
                     .gap(px(8.))
-                    .child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(
-                        "Horizon needs a Microsoft account that owns Minecraft: Java Edition, like other launchers.",
-                    )))
-                    .child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(
-                        "No Minecraft install needed: Horizon downloads it from Mojang for your account.",
-                    )))
+                    .child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(if setup {
+                        "Offline names play without a Microsoft account that owns the game. Minecraft still comes from your own install."
+                    } else {
+                        "Horizon needs a Microsoft account that owns Minecraft: Java Edition, like other launchers."
+                    })))
+                    .when(!setup, |d| {
+                        d.child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(
+                            "No Minecraft install needed: Horizon downloads it from Mojang for your account.",
+                        )))
+                    })
                     .child(ui::text(14., FontWeight::NORMAL, ink::QUIET).child(tr(
                         "Your worlds, offline names and settings stay where they are.",
                     ))),
             );
+        if let Some(field) = offline_field {
+            card = card.child(
+                div()
+                    .mt(px(16.))
+                    .child(ui::text(13., FontWeight::MEDIUM, ink::BODY).child(tr("Offline names")))
+                    .child(div().mt(px(8.)).child(field)),
+            );
+        }
         card = match state {
             Shown::Code(uri, user_code) => {
                 let copy = user_code.to_string();
@@ -475,6 +513,17 @@ impl Launcher {
                 .into_any_element(),
             ),
         };
+        if setup {
+            card = card.child(
+                ui::button("owner-play-offline".into(), tr("Play offline").into(), Kind::Primary, &t)
+                    .h(px(44.))
+                    .mt(px(16.))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.choose_offline_player();
+                        cx.notify();
+                    })),
+            );
+        }
         let later = ui::button("owner-later".into(), tr("Not now").into(), Kind::Ghost, &t)
             .h(px(44.))
             .px(px(20.))
@@ -489,7 +538,7 @@ impl Launcher {
                 .gap(px(8.))
                 .mt(px(24.))
                 .children(main)
-                .child(later),
+                .when(!setup, |d| d.child(later)),
         );
         if matches!(state, Shown::Code(..)) {
             card = card.child(
@@ -520,6 +569,23 @@ impl Launcher {
                     .bg(ui::scrim()),
             )
             .child(card)
+    }
+
+    fn choose_offline_player(&mut self) {
+        let name = self
+            .servers
+            .value(servers_page::Field::OfflineName)
+            .trim()
+            .to_string();
+        if name.is_empty() {
+            return;
+        }
+        self.play_as(account::Player::Offline(name.clone()));
+        if self.accounts.offline_selected.as_deref() == Some(name.as_str()) {
+            self.settings.player_setup_seen = true;
+            self.owner_screen_open = false;
+            self.save_settings();
+        }
     }
 }
 

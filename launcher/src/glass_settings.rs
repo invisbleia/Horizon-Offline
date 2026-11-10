@@ -4,8 +4,8 @@
 //! `SettingRow`s ([`glass_ui::flat_rows`]).
 //!
 //! Not in the mockup, kept in its patterns: the appearance, the Home background, the data and
-//! logs folders and the applications menu (About's rows), the AI clients, data collection (its own
-//! entry in the list) and the hidden developer options. The mockup's About tiles for Horizon and
+//! logs folders and the applications menu (About's rows), the AI clients and developer options.
+//! The mockup's About tiles for Horizon and
 //! the launcher open Updates here, beside the switches that decide how updates install. The mockup's Native mods switch is the
 //! native mods' build profile here: they are always on.
 
@@ -13,8 +13,8 @@ use super::*;
 use crate::glass_ui::{self as ui, white};
 use horizon_theme::glass::{fill, ink, radius};
 
-/// The list's entries: name and icon. The mockup's seven, then data collection.
-const SECTIONS: [(&str, &str); 8] = [
+/// The Settings sections shown in the navigation list.
+const SECTIONS: [(&str, &str); 7] = [
     ("Account", "user"),
     ("Updates", "refresh"),
     ("Launcher", "computer"),
@@ -22,7 +22,6 @@ const SECTIONS: [(&str, &str); 8] = [
     ("Game", "game-controller-01"),
     ("AI", "ai-chat-02"),
     ("About", "information-circle"),
-    ("Data collection", "view"),
 ];
 
 /// What `settings_page` builds before it knows which look draws it.
@@ -506,8 +505,7 @@ impl Launcher {
                 ))
             })
             .children(self.dev_options_section(cx));
-        let data = card().child(self.collection_section(cx));
-        vec![account, updates, launcher, network, game, ai, about, data]
+        vec![account, updates, launcher, network, game, ai, about]
     }
 }
 
@@ -515,11 +513,10 @@ impl Launcher {
 mod tests {
     use super::spy;
 
-    /// A 600 px pane over the mockup's eight cards: tall ones, then About and Data collection,
-    /// too short for their tops ever to reach 30 % of the pane.
-    const TOPS: [f32; 8] = [0., 420., 700., 1000., 1300., 1600., 1900., 2100.];
+    /// A 600 px pane over seven cards, with About as the short last section.
+    const TOPS: [f32; 7] = [0., 420., 700., 1000., 1300., 1500., 1700.];
     const HEIGHT: f32 = 600.;
-    const MAX: f32 = 2300. - HEIGHT;
+    const MAX: f32 = 1700.;
 
     fn at(scrolled: f32) -> usize {
         let tops: Vec<f32> = TOPS.iter().map(|t| t - scrolled).collect();
@@ -552,11 +549,11 @@ mod tests {
         // Every section is marked on the way down, in order, never skipped.
         let mut order = seen.clone();
         order.dedup();
-        assert_eq!(order, (0..8).collect::<Vec<_>>());
+        assert_eq!(order, (0..7).collect::<Vec<_>>());
         // About is marked for a stretch of scroll before the end, not for one step.
         let about = seen.iter().filter(|&&s| s == 6).count();
         assert!(about >= 8, "About marked for {about} steps of 10 px");
-        assert_eq!(at(MAX), 7);
+        assert_eq!(at(MAX), 6);
     }
 
     #[test]

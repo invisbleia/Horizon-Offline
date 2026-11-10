@@ -11,6 +11,7 @@ use gpui::{
 use std::sync::{Arc, LazyLock};
 
 pub const URL: &str = "https://my.sculkhosting.com/ref/horizon";
+pub const ENABLED: bool = false;
 
 /// How long the sidebar's banner stays on screen, counted over every start, before a "Hide" shows
 /// beside its label: long enough to be seen, then the player may put it away for good.

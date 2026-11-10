@@ -340,7 +340,7 @@ struct Launcher {
     settings: Settings,
     /// The last failed settings write, kept across page changes until a save succeeds.
     settings_save_error: Option<String>,
-    /// The Discord, sponsor and website links: built in until links.json on main has been read.
+    /// The Discord, sponsor and website links: built in until this fork's links.json has been read.
     links: backend::Links,
     preparing: bool,
     prepare_log: VecDeque<String>,
@@ -416,7 +416,7 @@ struct Launcher {
     proxy_input: line_edit::LineEdit,
     proxy_focused: bool,
     proxy_focus: FocusHandle,
-    /// Opt-in data collection: the player's answer and Settings' section (`collection`).
+    /// Opt-in data collection: the player's answer and consent screen (`collection`).
     collection: collection::Collection,
     /// Settings' "Connect an AI agent" (`agents_page`).
     agents: agents_page::AgentsUi,
@@ -533,7 +533,10 @@ impl Launcher {
                 .await;
             let counting = this.update(cx, |this, cx| {
                 let s = &mut this.settings;
-                if s.partner_hidden || s.partner_seen_secs >= partner::SEEN_BEFORE_HIDE {
+                if !partner::ENABLED
+                    || s.partner_hidden
+                    || s.partner_seen_secs >= partner::SEEN_BEFORE_HIDE
+                {
                     return false;
                 }
                 // On screen on every page: the card in the sidebar, the banner on Servers.
@@ -1570,10 +1573,11 @@ impl Launcher {
                     self.owner = Some(true);
                     self.owner_screen_open = false;
                     self.client_error = None;
+                    self.settings.player_setup_seen = true;
                     if !self.settings.owner_notice_seen {
                         self.settings.owner_notice_seen = true;
-                        self.save_settings();
                     }
+                    self.save_settings();
                 }
                 changed = true;
             }
@@ -3114,7 +3118,7 @@ impl Launcher {
         // its wide banner. Tall where the sidebar has the height for it besides the wordmark, its rows
         // (52 high each, under headings of 40) and the links, compact otherwise. After a while on
         // screen a "Hide" beside its label puts it away for good.
-        if self.page != Page::Servers && !self.settings.partner_hidden {
+        if partner::ENABLED && self.page != Page::Servers && !self.settings.partner_hidden {
             let free = f32::from(window.viewport_size().height)
                 - theme::TOPBAR
                 - 40. * headings as f32
@@ -4093,7 +4097,6 @@ impl Launcher {
                         ))
                     }),
             )
-            .child(self.collection_section(cx))
             .children(self.agents_section(cx))
             .children(self.dev_options_section(cx))
     }

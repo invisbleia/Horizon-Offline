@@ -20,6 +20,12 @@ pub struct Accent {
     rgb: Option<u32>,
 }
 
+impl Default for Accent {
+    fn default() -> Self {
+        Self::RED
+    }
+}
+
 /// The accent a launcher theme brings: a hue in degrees (First Light) or one exact colour (Nord's
 /// frost).
 #[derive(Clone, Copy, Debug)]
