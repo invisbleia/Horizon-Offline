@@ -57,9 +57,10 @@ and some are waiting for Ludovic:
   install by themselves, so the release run publishes it only after its smoke test passed (the game started and
   drew a world on the Mac mini) and only while no issue labelled `release-blocker` is open; otherwise nothing is
   published.
-- **Signed updates.** Each release carries a list of its files' checksums, signed with Horizon's release key. The
-  launcher (for the game and for itself) and `horizon-server update` check that signature against the public key
-  built into them, then check the download against the list. Anything unsigned, signed with another key, signed
+- **Signed updates.** Each release carries a list of its files' checksums. The launcher checks game releases and
+  `horizon-server update` against the game release key; this fork's launcher self-updates use its separate,
+  persistent launcher release key. The launcher then checks the download against the signed list. Anything
+  unsigned, signed with another key, signed
   for another version, or changed in any way is refused with a message saying why. Releases from before signing
   stay installable, for going back to an older version, but only with the exact files they had when signing
   began: their checksums are built into the launcher and the server too. The private key exists only as
