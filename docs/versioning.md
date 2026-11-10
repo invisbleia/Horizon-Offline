@@ -57,7 +57,7 @@ the website's `src/versions.js` (horizon-rust/horizon-site).
   version without its `v` in `HORIZON_VERSION`, so `horizon_core::release::VERSION` (and `--version`, the user
   agents, crash reports and telemetry) say `0.2.3`. No version-bump commits: `Cargo.toml` versions are what builds
   from source say. The build checks that `horizon-server --version` and `horizon-prepare --version` say it.
-- **`launcher.yml`**: `decide --kind launcher` picks `launcher@0.2.N`; the build gets `HORIZON_LAUNCHER_VERSION`
+- **`releaselauncher.yml`**: `decide --kind launcher` picks `launcher@0.2.N`; the build gets `HORIZON_LAUNCHER_VERSION`
   (`0.2.N`) and `HORIZON_LAUNCHER_TAG` (`launcher@0.2.N`). The tag tells the launcher which line it is on: a release
   built with only the version (every launcher before 0.2) is a `launcher-v` one.
 - **Notes**: a line's first release (`X.Y.0`) opens with a paragraph saying so; `v0.2.0`'s and `launcher@0.2.0`'s say
