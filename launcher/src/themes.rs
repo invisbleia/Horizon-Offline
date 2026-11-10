@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 /// An accent: a hue in degrees, or none for Horizon's violet, whose tokens are the palette's own
 /// and stay untouched; and for a colour typed as hex, that colour (the glass look wears it as
 /// is, the light look takes its hue).
-#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Accent {
     hue: Option<f32>,
