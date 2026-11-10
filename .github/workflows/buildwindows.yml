@@ -21,16 +21,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: . -> target
-          shared-key: buildwindows-game
-
-      - uses: Swatinem/rust-cache@v2
-        with:
           workspaces: launcher
           shared-key: buildwindows-launcher
-
-      - name: Build the game
-        run: cargo build --release --locked -p horizon-client --bin horizon-client
 
       - name: Build the launcher
         working-directory: launcher
@@ -41,7 +33,6 @@ jobs:
         with:
           name: horizon-windows-test-executables
           path: |
-            target/release/horizon-client.exe
             launcher/target/release/horizon-launcher.exe
           if-no-files-found: error
           retention-days: 7
