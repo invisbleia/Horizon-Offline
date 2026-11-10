@@ -1,0 +1,50 @@
+name: buildwindows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows test executables
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      RUSTFLAGS: -C target-feature=+crt-static
+      HORIZON_TELEMETRY_URL: "off"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+          shared-key: buildwindows-game
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: launcher
+          shared-key: buildwindows-launcher
+
+      - name: Build the game
+        run: cargo build --release --locked -p horizon-client --bin horizon-client
+
+      - name: Build the launcher
+        working-directory: launcher
+        run: cargo build --release --locked
+
+      - name: Upload Windows executables
+        uses: actions/upload-artifact@v7
+        with:
+          name: horizon-windows-test-executables
+          path: |
+            target/release/horizon-client.exe
+            launcher/target/release/horizon-launcher.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Report artifact
+        run: echo "Download horizon-windows-test-executables from this workflow run's Artifacts section."
