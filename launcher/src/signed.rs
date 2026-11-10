@@ -1,6 +1,7 @@
 //! Signed downloads (docs/security.md): a game or launcher archive is installed only when its
 //! SHA-256 matches the release's SHA256SUMS and that list is signed by one of the keys built in
-//! from crates/horizon-release-sign/release-keys.txt. A release from before signing installs only
+//! from crates/horizon-release-sign/release-keys.txt (game) or launcher-release-keys.txt (launcher).
+//! A release from before signing installs only
 //! with the SHA-256 pinned for it in legacy-releases.txt (a rollback). Anything else is refused
 //! with a message saying why.
 
@@ -123,11 +124,9 @@ mod tests {
 
     #[test]
     fn the_launcher_ships_with_a_release_key() {
-        // With no key in release-keys.txt every release after the pinned ones would be refused:
-        // this fails until the release environment's public key is listed (docs/security.md).
         assert!(
-            !horizon_release_sign::trusted_keys().is_empty(),
-            "crates/horizon-release-sign/release-keys.txt lists no key"
+            !horizon_release_sign::trusted_launcher_keys().is_empty(),
+            "crates/horizon-release-sign/launcher-release-keys.txt lists no key"
         );
     }
 

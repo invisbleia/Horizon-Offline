@@ -3,10 +3,9 @@
 //! Every release carries `SHA256SUMS` (`sha256sum`'s format, `<hex>  <file>` per line) and
 //! `SHA256SUMS.sig`: one base64 Ed25519 signature per line, each over `horizon release <tag>\n`
 //! followed by SHA256SUMS's bytes, so a signed list can't be passed off under another tag.
-//! release.yml and launcher.yml sign with the key(s) in the `release` environment's secrets
-//! (tools/ci/sign_release.sh, OpenSSL only); the launcher and `horizon-server update` check a
-//! download against the public keys built in from `release-keys.txt` before installing it, and
-//! refuse it otherwise.
+//! release.yml and launcher.yml sign with the key(s) in their release secrets
+//! (tools/ci/sign_release.sh, OpenSSL only); the launcher checks game downloads against
+//! `release-keys.txt` and this fork's launcher updates against `launcher-release-keys.txt`.
 //!
 //! Releases published before signing began carry no SHA256SUMS. Their archives' SHA-256s are
 //! pinned in `legacy-releases.txt` (taken from GitHub when signing began, by
@@ -27,6 +26,7 @@ pub const SIGNATURE: &str = "SHA256SUMS.sig";
 pub const SIGNATURE_V2: &str = "SHA256SUMS.v2.sig";
 
 const KEYS: &str = include_str!("../release-keys.txt");
+const LAUNCHER_KEYS: &str = include_str!("../launcher-release-keys.txt");
 const LEGACY: &str = include_str!("../legacy-releases.txt");
 
 /// An Ed25519 public key.
@@ -36,6 +36,11 @@ pub type PublicKey = [u8; 32];
 /// so every download is refused rather than trusted (a test keeps the file valid).
 pub fn trusted_keys() -> Vec<PublicKey> {
     parse_keys(KEYS).unwrap_or_default()
+}
+
+/// The public keys built in for this fork's launcher releases.
+pub fn trusted_launcher_keys() -> Vec<PublicKey> {
+    parse_keys(LAUNCHER_KEYS).unwrap_or_default()
 }
 
 /// The keys in a keys file: one base64 key per line; blank lines and `#` comments are skipped.
@@ -111,7 +116,7 @@ pub fn verify(
         });
     if !signed {
         return Err(format!(
-            "{tag}'s signature doesn't match Horizon's release key, so it was not installed. \
+            "{tag}'s signature doesn't match a trusted release key, so it was not installed. \
              The download may have been tampered with: please report it on Discord or GitHub."
         ));
     }

@@ -370,8 +370,7 @@ jobs:
     if: needs.decide.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # This fork signs with a throwaway key (EPHEMERAL): upstream's `release` environment and its
-    # secrets do not exist here, and none are needed.
+    # This fork uses its own persistent launcher-only key, separate from Horizon's game release key.
     steps:
       - uses: actions/checkout@v7
         with:
@@ -385,23 +384,20 @@ jobs:
           merge-multiple: true
       - name: Sign the checksums (SHA256SUMS, SHA256SUMS.sig)
         env:
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
-          RELEASE_SIGNING_KEY_NEXT: ${{ secrets.RELEASE_SIGNING_KEY_NEXT }}
-          EPHEMERAL: 'yes'
+          RELEASE_SIGNING_KEY: ${{ secrets.LAUNCHER_RELEASE_SIGNING_KEY }}
           TAG: ${{ needs.decide.outputs.tag }}
-        run: bash tools/ci/sign_release.sh "$TAG" dist/horizon-launcher-*
+        run: |
+          if [[ -z "$RELEASE_SIGNING_KEY" ]]; then
+            echo "::error::Set the LAUNCHER_RELEASE_SIGNING_KEY Actions secret to the base64 Ed25519 private key for launcher-release-keys.txt."
+            exit 1
+          fi
+          bash tools/ci/sign_release.sh "$TAG" dist/horizon-launcher-*
       - uses: actions/upload-artifact@v7
         with:
           name: signature
           path: dist/SHA256SUMS*
           if-no-files-found: error
           retention-days: 3
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ephemeral.pub
-          path: dist/ephemeral.pub
-          retention-days: 3
-
   release:
     needs: [decide, build, sign]
     if: needs.decide.outputs.publish == 'true'
@@ -440,12 +436,18 @@ jobs:
           path: dist
           merge-multiple: true
       - name: The signature, checked as launchers check it
-        env:
-          TAG: ${{ needs.decide.outputs.tag }}
-          EPHEMERAL: 'yes'
         run: |
-          key=(); [[ -n "$EPHEMERAL" ]] && key=(--key "$(cat dist/ephemeral.pub)")
-          cargo run --locked --quiet -p horizon-release-sign -- verify --tag "$TAG" --publishing "${key[@]}" dist
+          key=()
+          while IFS= read -r line; do
+            [[ -z "$line" || "$line" == \#* ]] && continue
+            key+=(--key "$line")
+          done < crates/horizon-release-sign/launcher-release-keys.txt
+          if [[ ${#key[@]} -eq 0 ]]; then
+            echo "::error::launcher-release-keys.txt has no trusted launcher release keys."
+            exit 1
+          fi
+          cargo run --locked --quiet -p horizon-release-sign -- verify \
+            --tag "${{ needs.decide.outputs.tag }}" "${key[@]}" --publishing dist
       # Never marked latest: Horizon's own releases stay the repository's latest.
       - name: The Windows ARM64 launcher, if it built
         # Its build may fail without holding the release (continue-on-error): the release then has no ARM64

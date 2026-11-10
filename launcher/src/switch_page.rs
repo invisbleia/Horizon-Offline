@@ -16,7 +16,9 @@ impl Launcher {
             ),
             Player::Offline(name) => (name, tr("Offline")),
             Player::GameName => (
-                self.offline_name.clone().unwrap_or_else(|| "Player".into()),
+                self.offline_name
+                    .clone()
+                    .unwrap_or_else(|| tr("No player selected").to_string()),
                 tr("Offline"),
             ),
         }
@@ -54,11 +56,13 @@ impl Launcher {
                 .iter()
                 .map(|n| (Player::Offline(n.clone()), n.clone(), tr("Offline"))),
         );
-        out.push((
-            Player::GameName,
-            self.offline_name.clone().unwrap_or_else(|| "Player".into()),
-            tr("Offline, the game's name"),
-        ));
+        if let Some(name) = self.offline_name.clone() {
+            out.push((
+                Player::GameName,
+                name,
+                tr("Offline, the game's name"),
+            ));
+        }
         out
     }
 

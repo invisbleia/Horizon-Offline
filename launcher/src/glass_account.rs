@@ -57,7 +57,9 @@ impl Launcher {
             ),
             Player::GameName => (
                 None,
-                self.offline_name.clone().unwrap_or_else(|| "Player".into()),
+                self.offline_name
+                    .clone()
+                    .unwrap_or_else(|| tr("No player selected").to_string()),
                 (Tone::Off, tr("Offline · single player and LAN worlds")),
             ),
         };

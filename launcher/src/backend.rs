@@ -3905,7 +3905,7 @@ pub fn stage_update(release: &Release, progress: impl Fn(f32)) -> Result<Option<
     let sha256 = crate::signed::launcher_digest(
         &release.tag,
         launcher_asset().unwrap_or_default(),
-        &horizon_release_sign::trusted_keys(),
+        &horizon_release_sign::trusted_launcher_keys(),
         fetch_small,
     )?;
     let work = update_work_dir();
