@@ -1,0 +1,88 @@
+name: buildwindows
+
+on:
+  workflow_dispatch:
+    inputs:
+      msa_client_id:
+        description: Microsoft app client ID (optional; defaults to the repository variable)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows test executables
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      RUSTFLAGS: -C target-feature=+crt-static
+      HORIZON_TELEMETRY_URL: "off"
+      HORIZON_MSA_CLIENT_ID: ${{ inputs.msa_client_id || vars.HORIZON_MSA_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: launcher
+          shared-key: buildwindows-launcher
+
+      - name: Build the launcher
+        working-directory: launcher
+        shell: bash
+        run: cargo build --release --locked ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+
+      - name: Prepare the setup executable
+        working-directory: launcher
+        shell: bash
+        run: cp target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
+
+      - name: Sign the checksums (SHA256SUMS, SHA256SUMS.sig)
+        working-directory: launcher
+        shell: bash
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.LAUNCHER_RELEASE_SIGNING_KEY }}
+        run: |
+          if [[ -z "$RELEASE_SIGNING_KEY" ]]; then
+            echo "::error::Set the LAUNCHER_RELEASE_SIGNING_KEY Actions secret to the base64 Ed25519 private key for launcher-release-keys.txt."
+            exit 1
+          fi
+          bash ../tools/ci/sign_release.sh buildwindows-test \
+            target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
+
+      - name: The signature, checked as launchers check it
+        shell: bash
+        run: |
+          key=()
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" || "$line" == \#* ]] && continue
+            key+=(--key "$line")
+          done < crates/horizon-release-sign/launcher-release-keys.txt
+          if [[ ${#key[@]} -eq 0 ]]; then
+            echo "::error::launcher-release-keys.txt has no trusted launcher release keys."
+            exit 1
+          fi
+          cargo run --locked --quiet -p horizon-release-sign -- verify \
+            --tag buildwindows-test "${key[@]}" launcher/target/release
+
+      - name: Upload launcher updater
+        uses: actions/upload-artifact@v7
+        with:
+          name: horizon-launcher-update
+          path: launcher/target/release/horizon-launcher-setup.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: signature
+          path: launcher/target/release/SHA256SUMS*
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Report artifact
+        run: echo "Download and extract horizon-launcher-update, then run horizon-launcher-setup.exe. The signature artifact carries SHA256SUMS and SHA256SUMS.sig, checked above as launchers check them."

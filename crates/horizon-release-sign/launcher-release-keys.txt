@@ -1,0 +1,3 @@
+# This fork's launcher releases only. The private key belongs in the LAUNCHER_RELEASE_SIGNING_KEY
+# GitHub Actions secret; never store it in this repository.
+vd2xOQxXYWCjcB78NootInlhzIC9epmzF8CEwPr/LwA=
