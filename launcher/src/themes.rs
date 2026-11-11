@@ -2,8 +2,8 @@
 //! Home.
 //!
 //! An accent is a hue, and the player may pick any of them; seven hues have names, as shortcuts.
-//! Horizon's violet is the default. Another hue turns the violet tokens (`horizon_theme::Blocks`'
-//! accent and the main action's face, bevel and lip) to it, keeping their saturation and
+//! Amber is the default. Another hue turns the violet tokens (`horizon_theme::Blocks`' accent
+//! and the main action's face, bevel and lip) to it, keeping their saturation and
 //! lightness, then darkens or lightens each just enough to read as well as the violet does: white
 //! on the face at 4.5:1, the accent at 3:1 on every background.
 use horizon_theme::night::{Night, SkyArt};
@@ -22,7 +22,7 @@ pub struct Accent {
 
 impl Default for Accent {
     fn default() -> Self {
-        Self::RED
+        Self::AMBER
     }
 }
 

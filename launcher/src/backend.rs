@@ -4415,7 +4415,7 @@ pub struct Settings {
     /// What the window does while the game runs. Stays by default.
     #[serde(default)]
     pub while_playing: WhilePlaying,
-    /// The accent colour on top of the appearance (`themes::Accent`). Horizon's violet by default.
+    /// The accent colour on top of the appearance (`themes::Accent`). Amber by default.
     #[serde(default)]
     pub accent: crate::themes::Accent,
     /// How much white the glass look's plates take, in percent (the mockup's Glass, 0 to 16).
@@ -5590,9 +5590,10 @@ pub fn {f}("
     }
 
     #[test]
-    fn the_accent_is_red_unless_picked_and_an_unknown_one_keeps_the_rest() {
+    fn the_accent_defaults_to_amber_and_an_unknown_one_keeps_the_rest() {
         use crate::themes::Accent;
-        assert_eq!(Settings::parse("{}").accent, Accent::RED);
+        assert_eq!(Settings::parse("{}").accent, Accent::AMBER);
+        assert_eq!(Settings::parse("{}").accent.hex(), "#c2410c");
         assert!(Settings::parse("").dev_offline);
         assert!(Settings::parse("{}").dev_offline);
         assert!(!Settings::parse(r#"{"dev_offline":false}"#).dev_offline);
