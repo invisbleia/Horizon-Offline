@@ -241,8 +241,8 @@ commits) since the commit the published Nightly was built on:
 
 Ludovic decided on 2026-10-28 that Horizon ships only the Nightly. No `vX.Y.Z` game release is made any more:
 the last one stays GitHub's *latest*, so launchers and servers from before the switch (which don't read Nightlies)
-keep a working build until they update themselves. `.github/release-line.txt` still numbers the launcher's releases
-(`launcher@X.Y.Z`).
+keep a working build until they update themselves. `.github/launcher-release-line.txt` numbers the launcher's
+releases (`launcher@X.Y.Z`), independently from the game's `.github/release-line.txt`.
 
 - **Launchers** (#3342) install the current `nightly` pre-release as their update, as the version
   `nightly-<date>-<commit>`, after checking its checksums signed for the Nightly channel. A player on the newest
@@ -339,12 +339,21 @@ so a signed list can't be reused under another tag.
   launcher uses the game key for game downloads and the launcher key for its own updates.
 - To create or replace this fork's launcher key, generate it directly into the repository secret and a temporary
   public-key file: `cargo run --locked -p horizon-release-sign -- keygen --public-out /tmp/launcher-key.pub |
-  gh secret set LAUNCHER_RELEASE_SIGNING_KEY --repo invisbleia/horizon-cracked`. Add the public key from that
-  file to `launcher-release-keys.txt` in the same change; never copy the private key into the repository or a chat.
+  gh secret set LAUNCHER_RELEASE_SIGNING_KEY --repo invisbleia/horizon-cracked`. Add the new public key from that
+  file to `launcher-release-keys.txt` in the same change; do not replace an old key while already-published
+  releases are signed with it. Never copy a private key into the repository or a chat.
 - Older launcher releases were signed with a temporary per-release key, not the persistent launcher key. An
   installed launcher from that transition cannot verify the first persistent-key release, so install that release
   once manually from the official launcher release page. After that, self-updates use the built-in persistent key.
   Do not work around this by trusting a key shipped beside a release or by disabling signature verification.
+- The `buildwindows` workflow can also produce a ZIP containing the newest Windows setup executable. On `main`,
+  a separate job signs its SHA256SUMS with the persistent launcher key and another job verifies the signature.
+  This is Horizon's Ed25519 checksum signature, not Microsoft Authenticode; the artifact is a manual setup build,
+  not a published release for the launcher's automatic updater.
+  Download the `horizon-launcher-update` artifact (not the unsigned build payload); its outer artifact ZIP contains
+  `horizon-launcher-update.zip`, `SHA256SUMS` and `SHA256SUMS.sig`. The signature tag is
+  `buildwindows-<workflow commit SHA>`. Releases signed by a temporary key cannot be updated in place: install this
+  setup build manually once, then its embedded persistent key can verify subsequent launcher releases.
 - Making the key: `tools/ci/new_release_key.sh` pipes a new key from `horizon-release-sign keygen` straight into
   `gh secret set RELEASE_SIGNING_KEY --env release` and prints only the public key, which then goes into
   release-keys.txt by pull request.
@@ -406,8 +415,8 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
 - `tools/release_train.py decide --kind launcher` counts the pull requests merged since the last published
   launcher release that changed those paths (not `launcher/links.json`, which the launcher reads from main, nor
   tests or Markdown), with the same batching rule (5 pull requests settled 5 minutes, or the oldest 6 hours), `release-now`, `skip-release` and `RELEASES_PAUSED`.
-- The tag is `launcher@X.Y.Z` on the release line (`launcher@0.2.0` first; the game and the launcher count their
-  patches separately). Without `.github/release-line.txt`, `launcher-vX.Y.Z`: the patch after the last launcher tag,
+- The tag is `launcher@X.Y.Z` on `.github/launcher-release-line.txt` (`launcher@1.0.0` first; game and launcher use
+  separate lines). Without that file, `launcher-vX.Y.Z`: the patch after the last launcher tag,
   or the next minor (`X.Y+1.0`) when one of those pull requests is labelled `feature`. `launcher-v0.2.0` was taken
   long before 0.2, hence the new prefix.
 - No version-bump commits: the build gets the version in `HORIZON_LAUNCHER_VERSION` and the tag in
@@ -421,12 +430,14 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
   `-f force=true` selects the current commit and publishes immediately without running tests. The smoke test installs
   the newest game build for that platform; Intel macOS skips only the install step while no matching build is
   available yet, and Windows ARM64 installs the x64 build (under emulation) from a Nightly without an ARM64 one.
-- When starting a release manually, the optional `added`, `removed` and `fixed` inputs write those sections in the
-  release notes. Leave all three blank to keep the automatically generated pull-request notes.
+- Launcher release notes list merged feature pull requests under **Added**, other pull requests under **Fixed**, and
+  **Removed** items as "No removals specified" unless given explicitly. On a manual run, `added` and `fixed` replace
+  their automatically generated sections when supplied; `removed` fills its section. The release page and the final
+  workflow summary list download links for every built Linux, Apple Silicon/Intel macOS, and Windows x64/ARM64
+  archive and installer; an optional Windows ARM64 asset is marked when it was not built.
 - Published with `--latest=false`: the repository's latest release stays a game release. Notes list the pull
-  requests under New and Fixed; Kira posts launcher releases without pinging. The publish step uses the
-  `RELEASE_PUBLISH_TOKEN` Actions secret (a fine-grained token with Contents read/write for this repository);
-  `GITHUB_TOKEN` may be denied release creation by GitHub even when workflow write permissions are enabled.
+  requests under Added and Fixed; Kira posts launcher releases without pinging. The publish step uses the workflow's
+  `GITHUB_TOKEN` with `contents: write`; no extra publishing secret is needed.
 - Windows also publishes `horizon-launcher-setup.exe` (x64) and `horizon-launcher-setup-arm64.exe`, the launcher's
   binary under another name: with no
   arguments it opens the per-user setup (`launcher/src/installer.rs`) instead of Home, and

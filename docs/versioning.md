@@ -4,8 +4,8 @@ How Horizon's releases are numbered from 0.2 on, how that maps onto the release 
 made before 0.2 gets there. The workflows themselves are in [release-flow.md](release-flow.md).
 
 Until 0.2 the game was tagged by date (`v2026.10.19.15`) and the launcher counted on its own (`launcher-v0.16.0`).
-From 0.2 both follow [semantic versioning](https://semver.org) and share one release line: **Horizon 0.2.x** is the
-game and the launcher of the 0.2 line.
+From 0.2 both follow [semantic versioning](https://semver.org), with separate release lines: the game line is in
+`.github/release-line.txt`, and the launcher line is in `.github/launcher-release-line.txt`.
 
 **Since 2026-10-28 the game ships only Nightlies** ([release-flow.md](release-flow.md#nightly-only)): no new `vX.Y.Z`
 game tag is made, and a game build is named `nightly-<date>-<commit>` (its release title, "Nightly <date> ·
@@ -16,36 +16,38 @@ the release line. What follows describes the `vX.Y.Z` game tags as they were.
 
 | | Game | Launcher |
 | --- | --- | --- |
-| From 0.2 | `v0.2.0`, `v0.2.1`, … | `launcher@0.2.0`, `launcher@0.2.1`, … |
+| From 0.2 | `v0.2.0`, `v0.2.1`, … | `launcher@0.2.0`, `launcher@0.2.1`, …; now `launcher@1.0.0`, `launcher@1.0.1`, … |
 | Before 0.2 | `v2026.10.19`, `v2026.10.19.15`, … | `launcher-v0.1.1` … `launcher-v0.16.0` (and the bridge, `launcher-v0.17.0`) |
-| Release title | `Horizon 0.2.3: <what changed>` | `Horizon launcher 0.2.1` |
-| The program says | `horizon-server 0.2.3`, `v0.2.3` in crash reports and telemetry | `horizon-launcher 0.2.1` |
+| Release title | `Horizon 0.2.3: <what changed>` | `Horizon launcher 1.0.0` |
+| The program says | `horizon-server 0.2.3`, `v0.2.3` in crash reports and telemetry | `horizon-launcher 1.0.0` |
 
-- **The line** (`MAJOR.MINOR`) is in `.github/release-line.txt`, one line such as `0.2`. Ludovic decides when it
-  moves; moving it is a one-line pull request (`0.3`), and the new line's first releases (`v0.3.0`,
-  `launcher@0.3.0`) go out as soon as it merges. Without the file, the release train keeps the tags from before
-  0.2. A `feature` label no longer bumps anything: it only lists the change under **New**.
-- **Patch releases** are every release the train makes: the patch after the newest release tagged on the line, game
-  and launcher counted separately (the game releases more often, so `v0.2.14` can go with `launcher@0.2.3`).
+- **The lines** (`MAJOR.MINOR`) are separate: `.github/release-line.txt` for the game and
+  `.github/launcher-release-line.txt` for the launcher. Moving a line is a one-line pull request; its first release
+  (`vX.Y.0` or `launcher@X.Y.0`) goes out as soon as it merges. The launcher starts at `launcher@1.0.0`; later line
+  changes can move it to `1.2.0`, then `1.3.0`, without changing the game's `0.2` line. Without the respective file,
+  the release train keeps that product's older tags. A `feature` label no longer bumps anything: it only lists the
+  change under **New**.
+- **Patch releases** are every release the train makes: the patch after the newest release tagged on that product's
+  line. Game and launcher versions are independent.
 - **One channel** (since 2026-10-23): every game release is published under its final tag as the release and
   GitHub's latest, once its smoke test passed and no `release-blocker` is open
   ([One channel](release-flow.md#one-channel)). The game pre-releases from before (v0.2.1 on, the old Alpha
   channel) keep their tags and stay pre-releases.
-- **Pre-release tags** (`v0.3.0-rc.1`, `v0.3.0-beta.2`) are semver's and are reserved for a hand-made preview of a
+- **Pre-release tags** (`v0.3.0-rc.1`, `v0.3.0-beta.2`, `launcher@1.2.0-rc.1`) are semver's and are reserved for a hand-made preview of a
   new line; the train never makes them. Every reader orders them before their release and after the release
   before (`v0.2.9` < `v0.3.0-beta.1` < `v0.3.0-rc.1` < `v0.3.0`).
-- **`launcher@`, not `launcher-v`**: `launcher-v0.2.0` and `launcher-v0.2.1` were taken long before 0.2, and a
-  launcher from before 0.2 must not mistake a new 0.2.x for an older release (see below).
+- **`launcher@`, not `launcher-v`**: `launcher-v0.2.0` and `launcher-v0.2.1` were taken long before 0.2. The newer
+  `launcher@1.0.0` tags sort after the `launcher@0.2.x` releases and update them normally.
 
 ### The order every reader uses
 
-Every 0.2 tag is newer than every tag from before 0.2. Within each:
+Every 0.2 tag is newer than every tag from before 0.2. From 0.2 onward, each product's tags follow semver. Within each:
 
 - before 0.2: number by number, missing numbers as zero (`v2026.10.19` = `v2026.10.19.0`);
 - from 0.2: semver: major, minor, patch as numbers, then a release after its pre-releases, whose identifiers
   compare one by one (numbers before words, numbers as numbers, a shorter list first).
 
-A tag is a 0.2 tag when it is `v` or `launcher@` followed by exactly three numbers (and an optional `-PRE`) with a
+A tag is a semver tag when it is `v` or `launcher@` followed by exactly three numbers (and an optional `-PRE`) with a
 major below 1000; a date's first number is a year, so `v2026.10.21` never is. The rule is written once per
 language, with the same tests: `crates/horizon-server/src/update.rs` (`newer`), `launcher/src/backend.rs`
 (`release_order`), `tools/release_train.py` (`tag_key`) and
@@ -57,8 +59,8 @@ the website's `src/versions.js` (horizon-rust/horizon-site).
   version without its `v` in `HORIZON_VERSION`, so `horizon_core::release::VERSION` (and `--version`, the user
   agents, crash reports and telemetry) say `0.2.3`. No version-bump commits: `Cargo.toml` versions are what builds
   from source say. The build checks that `horizon-server --version` and `horizon-prepare --version` say it.
-- **`releaselauncher.yml`**: `decide --kind launcher` picks `launcher@0.2.N`; the build gets `HORIZON_LAUNCHER_VERSION`
-  (`0.2.N`) and `HORIZON_LAUNCHER_TAG` (`launcher@0.2.N`). The tag tells the launcher which line it is on: a release
+- **`releaselauncher.yml`**: `decide --kind launcher` picks `launcher@X.Y.N` from `.github/launcher-release-line.txt`;
+  the build gets `HORIZON_LAUNCHER_VERSION` (`X.Y.N`) and `HORIZON_LAUNCHER_TAG` (`launcher@X.Y.N`). The tag tells the launcher which line it is on: a release
   built with only the version (every launcher before 0.2) is a `launcher-v` one.
 - **Notes**: a line's first release (`X.Y.0`) opens with a paragraph saying so; `v0.2.0`'s and `launcher@0.2.0`'s say
   that releases are numbered from now on, and tell server owners to run `horizon-server update` (or, if their server

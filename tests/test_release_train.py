@@ -87,6 +87,16 @@ class ReleaseTrainTests(unittest.TestCase):
         self.assertEqual(train.next_game_tag(before, today), "v2026.10.23")
         self.assertEqual(train.next_launcher_tag(after, minor=False), "launcher-v0.16.1")
 
+    def test_launcher_has_its_own_release_line(self):
+        tags = ["launcher@0.2.1", "launcher@0.2.2"]
+        line = train.release_line(train.LAUNCHER_LINE_FILE)
+        self.assertEqual(line, (1, 0))
+        self.assertEqual(train.next_launcher_tag(tags, minor=False, line=line), "launcher@1.0.0")
+        self.assertTrue(train.first_on_line(tags, "launcher@", line))
+        self.assertEqual(train.release_line(train.LINE_FILE), (0, 2))
+        with self.assertRaisesRegex(SystemExit, r"launcher-release-line\.txt"):
+            train.next_launcher_tag(tags + ["launcher@1.2.0"], minor=False, line=line)
+
     def test_the_release_line_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "release-line.txt"
@@ -216,6 +226,24 @@ class ReleaseTrainTests(unittest.TestCase):
         title, _ = train.notes("game", "v2026.10.15.2", [pr(9, "Horizon's mark", labels=["feature"]),
                                                          pr(10, "Game menus", labels=["feature"])], [])
         self.assertEqual(title, "Horizon 2026.10.15.2: Game menus, Horizon's mark", "proper nouns keep their capital")
+
+    def test_launcher_notes_list_added_removed_fixed_and_keep_automatic_details(self):
+        prs = [pr(5, "New controller support", labels=["feature"]),
+               pr(6, "Fix launcher startup")]
+        _, body = train.notes("launcher", "launcher@1.0.1", prs, [])
+        self.assertIn("### Added\n- New controller support (#5)", body)
+        self.assertIn("### Removed\nNo removals specified.", body)
+        self.assertIn("### Fixed\n- Fix launcher startup (#6)", body)
+
+        _, body = train.notes("launcher", "launcher@1.0.1", prs, [],
+                              added="A manually described addition.",
+                              removed="The deprecated import option.",
+                              fixed="A manually described fix.")
+        self.assertIn("### Added\nA manually described addition.", body)
+        self.assertIn("### Removed\nThe deprecated import option.", body)
+        self.assertIn("### Fixed\nA manually described fix.", body)
+        self.assertNotIn("New controller support", body)
+        self.assertNotIn("Fix launcher startup", body)
 
     def test_a_long_release_is_named_after_its_first_titles(self):
         prs = [pr(n, f"Change number {n} with a fairly long title") for n in range(1, 10)]

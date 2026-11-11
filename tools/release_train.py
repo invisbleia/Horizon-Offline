@@ -16,9 +16,10 @@ or at once when one of those pull requests is labelled release-now. Pull request
 towards a release and aren't listed in the notes. RELEASES_PAUSED=1 (a repository variable) stops automatic releases,
 and an open issue labelled release-blocker stops game releases, even forced ones, until it is closed.
 
-Tags (docs/versioning.md): with a release line in .github/release-line.txt (MAJOR.MINOR, e.g. 0.2), game releases
-are vMAJOR.MINOR.PATCH and launcher releases launcher@MAJOR.MINOR.PATCH, each the patch after the last tag of its kind
-on the line (MAJOR.MINOR.0 first: a line's first release goes out without waiting for a pull request). Without the
+Tags (docs/versioning.md): with a release line in .github/release-line.txt (game) or
+.github/launcher-release-line.txt (launcher), game releases are vMAJOR.MINOR.PATCH and launcher releases
+launcher@MAJOR.MINOR.PATCH, each the patch after the last tag of its kind on that product's line
+(MAJOR.MINOR.0 first: a line's first release goes out without waiting for a pull request). Without the respective
 file, the tags from before 0.2: vYYYY.MM.DD, then .01, .02 the same UTC day, and launcher-vX.Y.Z, the patch after
 the last launcher tag or the next minor when a merged pull request is labelled feature. Every 0.2 tag is newer than
 every tag from before (tag_key). Notes:
@@ -56,6 +57,7 @@ PROPER = {"Horizon", "Horizon's", "Minecraft", "Mojang", "Microsoft", "Java", "X
 EXPORTERS = "mods/horizon/src/test/java/dev/horizonlab/parity/"
 # The release line (docs/versioning.md): MAJOR.MINOR. Without the file, releases keep the tags from before 0.2.
 LINE_FILE = ROOT / ".github" / "release-line.txt"
+LAUNCHER_LINE_FILE = ROOT / ".github" / "launcher-release-line.txt"
 SEMVER = r"(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
 # Semver's majors stay below this; a date tag's first number is a year.
 FIRST_YEAR = 1000
@@ -175,7 +177,7 @@ def release_line(path=LINE_FILE):
     return int(match[1]), int(match[2])
 
 
-def next_on_line(tags, prefix, line):
+def next_on_line(tags, prefix, line, line_file):
     """<prefix>MAJOR.MINOR.PATCH: the patch after the newest release tagged on the line (drafts and rolled-back
     releases included; a hand-made pre-release such as v0.3.0-rc.1 is not one), or .0. Never a line below one that
     has tags: GitHub's latest release only moves forward."""
@@ -183,7 +185,7 @@ def next_on_line(tags, prefix, line):
     versions = [v for v in (semver(tag, prefix) for tag in tags) if v]
     above = [v for v in versions if (v[0], v[1]) > line and v[3] is None]
     if above:
-        raise SystemExit(f"{LINE_FILE.name} says {major}.{minor}, but {prefix}{'.'.join(map(str, above[0][:3]))} exists")
+        raise SystemExit(f"{line_file.name} says {major}.{minor}, but {prefix}{'.'.join(map(str, above[0][:3]))} exists")
     patches = [v[2] for v in versions if (v[0], v[1]) == line and v[3] is None]
     return f"{prefix}{major}.{minor}.{max(patches) + 1 if patches else 0}"
 
@@ -200,7 +202,7 @@ def next_game_tag(tags, today, line=None):
     The counter has two digits because GitHub's releases page sorts a day's tags as text: .9 went above .18.
     Every reader compares the numbers as integers, so the unpadded tags from before still order correctly."""
     if line:
-        return next_on_line(tags, GAME_PREFIX, line)
+        return next_on_line(tags, GAME_PREFIX, line, LINE_FILE)
     day = f"v{today:%Y.%m.%d}"
     taken = [tag for tag in tags if tag == day or tag.startswith(day + ".")]
     if not taken:
@@ -212,7 +214,7 @@ def next_launcher_tag(tags, minor, line=None):
     """launcher@MAJOR.MINOR.PATCH on a release line (a feature doesn't change the line); before 0.2,
     launcher-vX.Y.Z, the next patch or with minor the next minor."""
     if line:
-        return next_on_line(tags, LAUNCHER_PREFIX, line)
+        return next_on_line(tags, LAUNCHER_PREFIX, line, LAUNCHER_LINE_FILE)
     versions = sorted((tuple(int(part) for part in re.findall(r"\d+", tag)) for tag in tags
                        if tag.startswith(OLD_LAUNCHER_PREFIX) and is_launcher_tag(tag)), reverse=True)
     major, minor_, patch = versions[0] if versions else (0, 1, 0)
@@ -392,13 +394,13 @@ def line_intro(kind, version, previous):
             f"`horizon-server update --version {version}`.")
 
 
-def notes(kind, version, prs, issues, previous=None):
-    """(title, body) of a release. previous: the release before it, for a line's first release."""
+def notes(kind, version, prs, issues, previous=None, added=None, removed=None, fixed=None):
+    """(title, body) of a release. Launcher sections can be overridden with manual release details."""
     shown = [pr for pr in prs if pr["paths"] and "skip-release" not in pr["labels"]]
     new = [pr for pr in shown if "feature" in pr["labels"]]
-    fixed = [pr for pr in shown if "feature" not in pr["labels"]]
+    fixed_prs = [pr for pr in shown if "feature" not in pr["labels"]]
     if kind == "game":
-        title = f"Horizon {version.removeprefix(GAME_PREFIX)}" + (f": {summary(new, fixed)}" if shown else "")
+        title = f"Horizon {version.removeprefix(GAME_PREFIX)}" + (f": {summary(new, fixed_prs)}" if shown else "")
     else:
         title = f"Horizon launcher {version.removeprefix(OLD_LAUNCHER_PREFIX).removeprefix(LAUNCHER_PREFIX)}"
     intro = line_intro(kind, version, previous)
@@ -407,10 +409,21 @@ def notes(kind, version, prs, issues, previous=None):
         parts.append(intro)
     if not shown:
         parts.append("Rebuilt from the latest main.")
-    if new:
-        parts.append("### New\n" + "\n".join(map(bullet, new)))
-    if fixed:
-        parts.append("### Fixed\n" + "\n".join(map(bullet, fixed)))
+    if kind == "launcher":
+        if added:
+            parts.append("### Added\n" + added.strip())
+        elif new:
+            parts.append("### Added\n" + "\n".join(map(bullet, new)))
+        parts.append("### Removed\n" + (removed.strip() if removed else "No removals specified."))
+        if fixed:
+            parts.append("### Fixed\n" + fixed.strip())
+        elif fixed_prs:
+            parts.append("### Fixed\n" + "\n".join(map(bullet, fixed_prs)))
+    else:
+        if new:
+            parts.append("### New\n" + "\n".join(map(bullet, new)))
+        if fixed_prs:
+            parts.append("### Fixed\n" + "\n".join(map(bullet, fixed_prs)))
     if issues and kind == "game":
         parts.append("### Known issues\n" + "\n".join(issues))
     contributors = sorted({pr["author"] for pr in shown if pr["author"] and pr["author"] != MAINTAINER})
@@ -528,6 +541,9 @@ def main():
     parser.add_argument("--kind", choices=["game", "launcher"], required=True)
     parser.add_argument("--head", help="the commit to release (default: the newest commit on main whose checks passed)")
     parser.add_argument("--tag", help="notes: the release's tag")
+    parser.add_argument("--added", help="notes: replace the launcher's automatic Added section")
+    parser.add_argument("--removed", help="notes: describe launcher changes removed in this release")
+    parser.add_argument("--fixed", help="notes: replace the launcher's automatic Fixed section")
     parser.add_argument("--force", action="store_true", help="release even without player-facing changes, before merges settle, while paused or before parity-main passed")
     parser.add_argument("--out", type=Path, help="notes: write title.txt and body.md here")
     parser.add_argument("--now", help="the time to decide at (ISO 8601; default now)")
@@ -566,7 +582,8 @@ def main():
     if args.command == "notes":
         version = args.tag or "unreleased"
         previous = last["tag_name"] if last and last["tag_name"] != version else None
-        title, body = notes(args.kind, version, prs, known_issues(), previous=previous)
+        title, body = notes(args.kind, version, prs, known_issues(), previous=previous,
+                            added=args.added, removed=args.removed, fixed=args.fixed)
         if args.out:
             args.out.mkdir(parents=True, exist_ok=True)
             (args.out / "title.txt").write_text(title + "\n")
@@ -575,7 +592,7 @@ def main():
         return 0
 
     tags = run("git", "tag", "--list").split()
-    line = release_line()
+    line = release_line(LINE_FILE if args.kind == "game" else LAUNCHER_LINE_FILE)
     prefix = GAME_PREFIX if args.kind == "game" else LAUNCHER_PREFIX
     new_line = f"{line[0]}.{line[1]}" if line and first_on_line(tags, prefix, line) and not nightly else None
     blockers = open_blockers() if args.kind == "game" else []
