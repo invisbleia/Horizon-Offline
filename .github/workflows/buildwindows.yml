@@ -40,6 +40,34 @@ jobs:
         shell: bash
         run: cp target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
 
+      - name: Sign the checksums (SHA256SUMS, SHA256SUMS.sig)
+        working-directory: launcher
+        shell: bash
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.LAUNCHER_RELEASE_SIGNING_KEY }}
+        run: |
+          if [[ -z "$RELEASE_SIGNING_KEY" ]]; then
+            echo "::error::Set the LAUNCHER_RELEASE_SIGNING_KEY Actions secret to the base64 Ed25519 private key for launcher-release-keys.txt."
+            exit 1
+          fi
+          bash tools/ci/sign_release.sh buildwindows-test \
+            target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
+
+      - name: The signature, checked as launchers check it
+        shell: bash
+        run: |
+          key=()
+          while IFS= read -r line; do
+            [[ -z "$line" || "$line" == \#* ]] && continue
+            key+=(--key "$line")
+          done < crates/horizon-release-sign/launcher-release-keys.txt
+          if [[ ${#key[@]} -eq 0 ]]; then
+            echo "::error::launcher-release-keys.txt has no trusted launcher release keys."
+            exit 1
+          fi
+          cargo run --locked --quiet -p horizon-release-sign -- verify \
+            --tag buildwindows-test "${key[@]}" launcher/target/release
+
       - name: Upload launcher updater
         uses: actions/upload-artifact@v7
         with:
@@ -49,5 +77,12 @@ jobs:
           compression-level: 0
           retention-days: 7
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: signature
+          path: launcher/target/release/SHA256SUMS*
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Report artifact
-        run: echo "Download and extract horizon-launcher-update, then run horizon-launcher-setup.exe."
+        run: echo "Download and extract horizon-launcher-update, then run horizon-launcher-setup.exe. The signature artifact carries SHA256SUMS and SHA256SUMS.sig, checked above as launchers check them."
