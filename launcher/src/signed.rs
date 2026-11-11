@@ -87,13 +87,15 @@ mod tests {
 
     #[test]
     fn game_and_launcher_release_assets_use_their_own_repositories() {
+        assert_eq!(REPO, "horizon-rust/horizon");
+        assert_eq!(LAUNCHER_REPO, "invisbleia/Horizon-Offline");
         assert_eq!(
             asset_url("v0.2.0", SUMS),
             "https://github.com/horizon-rust/horizon/releases/download/v0.2.0/SHA256SUMS"
         );
         assert_eq!(
             launcher_asset_url("launcher@0.2.0", SUMS),
-            "https://github.com/invisbleia/horizon-cracked/releases/download/launcher@0.2.0/SHA256SUMS"
+            "https://github.com/invisbleia/Horizon-Offline/releases/download/launcher@0.2.0/SHA256SUMS"
         );
     }
 
@@ -105,7 +107,7 @@ mod tests {
         let signature = key.sign("launcher@2099.0.0", sums.as_bytes());
         let fetch = |url: &str| -> Result<Option<Vec<u8>>, String> {
             assert!(url.starts_with(
-                "https://github.com/invisbleia/horizon-cracked/releases/download/launcher@2099.0.0/"
+                "https://github.com/invisbleia/Horizon-Offline/releases/download/launcher@2099.0.0/"
             ));
             Ok(Some(
                 if url.ends_with(SIGNATURE) {

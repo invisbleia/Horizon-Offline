@@ -16,15 +16,15 @@ the release line. What follows describes the `vX.Y.Z` game tags as they were.
 
 | | Game | Launcher |
 | --- | --- | --- |
-| From 0.2 | `v0.2.0`, `v0.2.1`, … | `launcher@0.2.0`, `launcher@0.2.1`, …; now `launcher@1.0.0`, `launcher@1.0.1`, … |
+| From 0.2 | `v0.2.0`, `v0.2.1`, … | `launcher@0.2.0`, `launcher@0.2.1`, …; now `launcher@1.0.0`, `launcher@1.0.1`, `launcher@1.0.2`, … |
 | Before 0.2 | `v2026.10.19`, `v2026.10.19.15`, … | `launcher-v0.1.1` … `launcher-v0.16.0` (and the bridge, `launcher-v0.17.0`) |
 | Release title | `Horizon 0.2.3: <what changed>` | `Horizon launcher 1.0.0` |
 | The program says | `horizon-server 0.2.3`, `v0.2.3` in crash reports and telemetry | `horizon-launcher 1.0.0` |
 
 - **The lines** (`MAJOR.MINOR`) are separate: `.github/release-line.txt` for the game and
   `.github/launcher-release-line.txt` for the launcher. Moving a line is a one-line pull request; its first release
-  (`vX.Y.0` or `launcher@X.Y.0`) goes out as soon as it merges. The launcher starts at `launcher@1.0.0`; later line
-  changes can move it to `1.2.0`, then `1.3.0`, without changing the game's `0.2` line. Without the respective file,
+  (`vX.Y.0` or `launcher@X.Y.0`) normally goes out as soon as it merges. The launcher starts at `launcher@1.0.0`;
+  later line changes can move it to `1.2.0`, then `1.3.0`, without changing the game's `0.2` line. Without the respective file,
   the release train keeps that product's older tags. A `feature` label no longer bumps anything: it only lists the
   change under **New**.
 - **Patch releases** are every release the train makes: the patch after the newest release tagged on that product's
@@ -55,18 +55,30 @@ the website's `src/versions.js` (horizon-rust/horizon-site).
 
 ## The workflows
 
-- **`release.yml`**: `tools/release_train.py decide --kind game` picks the tag (`next_game_tag`); the build gets the
-  version without its `v` in `HORIZON_VERSION`, so `horizon_core::release::VERSION` (and `--version`, the user
-  agents, crash reports and telemetry) say `0.2.3`. No version-bump commits: `Cargo.toml` versions are what builds
-  from source say. The build checks that `horizon-server --version` and `horizon-prepare --version` say it.
+- **Game releases**: the source project's `release.yml` used `tools/release_train.py decide --kind game`; game
+  publication is disabled in Horizon-Offline. The retained game version line is `0.2`.
 - **`releaselauncher.yml`**: `decide --kind launcher` picks `launcher@X.Y.N` from `.github/launcher-release-line.txt`;
   the build gets `HORIZON_LAUNCHER_VERSION` (`X.Y.N`) and `HORIZON_LAUNCHER_TAG` (`launcher@X.Y.N`). The tag tells the launcher which line it is on: a release
-  built with only the version (every launcher before 0.2) is a `launcher-v` one.
+  built with only the version (every launcher before 0.2) is a `launcher-v` one. In Horizon-Offline, the launcher
+  feed and release assets are this repository; game releases remain in `horizon-rust/horizon`.
 - **Notes**: a line's first release (`X.Y.0`) opens with a paragraph saying so; `v0.2.0`'s and `launcher@0.2.0`'s say
   that releases are numbered from now on, and tell server owners to run `horizon-server update` (or, if their server
   says it is up to date, `horizon-server update --version v0.2.0`).
 - **A line's first release** goes out as soon as the release train runs after the line changes, without waiting for
   a pull request, but never while `RELEASES_PAUSED` is set.
+
+## Horizon-Offline migration
+
+The source repository's latest launcher release is `launcher@1.0.1`; Horizon-Offline begins without release history.
+The release train therefore treats `launcher@1.0.1` as the migration floor and selects `launcher@1.0.2` as its first
+release, never `1.0.0` or `1.0.1`. The independent release lines remain game `0.2` in `.github/release-line.txt`
+and launcher `1.0` in `.github/launcher-release-line.txt`. Game releases and game assets continue to come from
+`horizon-rust/horizon`; this repository publishes launcher releases only.
+
+Already-installed launchers contain the old repository URL and cannot discover Horizon-Offline releases. No bridge
+release in the old repository is authorized for this migration, so existing users must install a new launcher once
+from the Horizon-Offline Releases page. After that installation, self-updates use this repository's feed and continue
+to verify signed checksums with the trusted launcher key.
 
 ## Existing installs: the way to 0.2
 

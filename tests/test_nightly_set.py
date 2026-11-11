@@ -40,7 +40,7 @@ def run(state, text, login="kacpherek", *prs):
 
 
 class CommandTests(unittest.TestCase):
-    """command(), as nightly-command.yml runs it: the comment in the environment, the answer posted back."""
+    """Source-project command adapter: the comment in the environment, the answer posted back."""
 
     def run_command(self, body, author=ns.OWNER):
         answers = []
@@ -179,7 +179,7 @@ class AllowTests(unittest.TestCase):
 
 class WorkflowIdTests(unittest.TestCase):
     def test_every_command_workflow_passes_the_authors_id(self):
-        for name in ("nightly-command.yml", "triage-command.yml", "claim-command.yml"):
+        for name in ("triage-command.yml", "claim-command.yml"):
             text = (ROOT / ".github/workflows" / name).read_text()
             self.assertIn("AUTHOR_ID: ${{ github.event.comment.user.id }}", text, name)
 

@@ -46,8 +46,8 @@ for):
 | `off` | GitHub's | GitHub's: everything back, in one switch |
 
 ```sh
-gh variable set SELF_HOSTED_CI --body light --repo horizon-rust/horizon   # or all, off
-gh variable delete SELF_HOSTED_CI --repo horizon-rust/horizon             # the default
+gh variable set SELF_HOSTED_CI --body light --repo invisbleia/Horizon-Offline   # or all, off
+gh variable delete SELF_HOSTED_CI --repo invisbleia/Horizon-Offline             # the default
 ```
 
 Set `light` when the desktop is paused (the maintainer uses it), `off` when playhorizon is down or moves: the bots

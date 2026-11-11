@@ -91,11 +91,29 @@ class ReleaseTrainTests(unittest.TestCase):
         tags = ["launcher@0.2.1", "launcher@0.2.2"]
         line = train.release_line(train.LAUNCHER_LINE_FILE)
         self.assertEqual(line, (1, 0))
-        self.assertEqual(train.next_launcher_tag(tags, minor=False, line=line), "launcher@1.0.0")
+        self.assertEqual(train.next_launcher_tag(tags, minor=False, line=line), "launcher@1.0.2")
         self.assertTrue(train.first_on_line(tags, "launcher@", line))
         self.assertEqual(train.release_line(train.LINE_FILE), (0, 2))
+        self.assertEqual(train.next_game_tag([], dt.date(2026, 10, 15), train.release_line(train.LINE_FILE)), "v0.2.0")
+        self.assertEqual(
+            train.next_launcher_tag([], minor=False, line=train.release_line(train.LAUNCHER_LINE_FILE)),
+            "launcher@1.0.2",
+        )
         with self.assertRaisesRegex(SystemExit, r"launcher-release-line\.txt"):
             train.next_launcher_tag(tags + ["launcher@1.2.0"], minor=False, line=line)
+
+    def test_empty_destination_bootstraps_launcher_version_and_notes(self):
+        line = train.release_line(train.LAUNCHER_LINE_FILE)
+        tag = train.next_launcher_tag([], minor=False, line=line)
+        self.assertEqual(tag, "launcher@1.0.2")
+        title, body = train.notes("launcher", tag, [], [], previous=None)
+        self.assertEqual(title, "Horizon launcher 1.0.2")
+        self.assertIn("First launcher release in Horizon-Offline.", body)
+        self.assertIn("cannot discover this release; install this version manually once.", body)
+        self.assertIn("verify the built-in trusted signing key.", body)
+        with mock.patch.object(train, "merged_between") as merged:
+            self.assertEqual(train.gather("launcher", "HEAD", releases=[]), (None, []))
+            merged.assert_not_called()
 
     def test_the_release_line_file(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -314,7 +332,7 @@ class ReleaseTrainTests(unittest.TestCase):
 
 
 class NightlyTrainTests(unittest.TestCase):
-    """Since 2026-10-28 the train decides when a Nightly goes out (release.yml starts nightly-build.yml)."""
+    """Nightly decision logic retained for upstream parity tests; this repository does not publish Nightlies."""
 
     PRS = [{"number": 1, "labels": [], "paths": ["crates/x.rs"]}]
 

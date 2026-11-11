@@ -15,7 +15,7 @@ allows you to use horizon launcher without microsoft account
 ## Launcher downloads
 
 Choose the download for your computer from the
-[GitHub Releases page](https://github.com/invisbleia/horizon-cracked/releases):
+[Horizon-Offline Releases page](https://github.com/invisbleia/Horizon-Offline/releases):
 
 | Operating system | Which file to download |
 | --- | --- |
@@ -24,6 +24,13 @@ Choose the download for your computer from the
 | macOS (Apple Silicon) | `horizon-launcher-macos-arm64.dmg` |
 | macOS (Intel) | `horizon-launcher-macos-x64.dmg` |
 | Linux | `horizon-launcher-linux-x86_64.AppImage` (recommended) or `horizon-launcher-linux-x86_64.tar.gz` |
+
+Launchers installed before the repository move still check the old release feed. Update once manually from this page;
+subsequent self-updates use Horizon-Offline. See [launcher versioning](docs/versioning.md#horizon-offline-migration).
+
+The migration preserves both license texts: the source project's HACK License remains in [LICENSE](LICENSE), and the
+destination's original MIT text is preserved separately in [LICENSE-Horizon-Offline-MIT](LICENSE-Horizon-Offline-MIT).
+They remain distinct; this migration does not combine or reinterpret their terms.
 
 <p align="center">
   <img src="docs/media/readme/valley.webp" alt="A river valley with a plains village, savanna hills and a cherry grove, seen from above with a long view distance" width="100%">

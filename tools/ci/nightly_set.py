@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Trusted reviewers pick the pull requests a Nightly holds (docs/release-flow.md "Nightly channel").
+"""Source-project helpers for choosing Nightly contents (no Nightly publisher runs in Horizon-Offline).
 
-    nightly_set.py command     one `/nightly …` comment (nightly-command.yml): checks who asked, updates the set,
-                               starts the build and answers in the thread
+    nightly_set.py command     source-project adapter for one `/nightly …` comment
 
 A comment by Ludovic or by an account in .github/trusted-reviewers.txt, on any issue or pull request. Accounts are
 matched by their numeric GitHub ID, never by login: a login is a name anyone can claim once its owner renames or
@@ -13,7 +12,7 @@ deletes the account, an ID is never reused (docs/release-flow.md "Trusted review
     /nightly remove 2640   drops one; builds now. Ludovic's remove also keeps reviewers from adding it back
     /nightly clear         empties the set: the Nightly is main alone again; builds now
     /nightly status        what the set holds
-    /nightly dry-run 2640  builds main + these and signs with a throwaway key; publishes nothing, the set stays
+    /nightly dry-run 2640  source-project preview only; publishes nothing, the set stays
 
 The set (set.json on the nightly-state branch) keeps each pull request at the head it had when someone asked for
 it; the scheduled nightly builds them at those heads and drops the merged and closed ones (nightly.py pick).

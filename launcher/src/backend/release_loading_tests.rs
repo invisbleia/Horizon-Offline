@@ -103,7 +103,9 @@ fn publish_games_before_older_launcher_fallback() {
         |_| {
             launcher_releases_in_with(&serde_json::json!([]), |url| {
                 assert_eq!(events.borrow().first(), Some(&"releases"));
-                assert!(url.starts_with(&format!("https://api.github.com/repos/{LAUNCHER_REPO}/")));
+                assert!(url.starts_with(
+                    "https://api.github.com/repos/invisbleia/Horizon-Offline/"
+                ));
                 events.borrow_mut().push("fallback");
                 if url.contains("matching-refs") {
                     Ok(serde_json::json!([{"ref": "refs/tags/launcher@99.0.0"}]))

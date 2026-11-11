@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Decides when Horizon releases, names the release and writes its notes (.github/workflows/release.yml).
+"""Decides when Horizon releases, names the release and writes its notes (upstream release workflow).
 
     python3 tools/release_train.py decide --kind game [--head SHA] [--force]
     python3 tools/release_train.py decide --kind launcher
     python3 tools/release_train.py notes --kind game --tag v2026.10.15 --out dist/notes
     python3 tools/release_train.py gate --kind game --smoke dist/smoke-test.json [--blockers]   # before publishing
 
-The game ships only the Nightly since 2026-10-28 (Ludovic): when `decide --kind game` says so, release.yml starts
-`nightly build` on the commit it decided (tools/ci/nightly.py), and "the last release" is the published Nightly.
+The source project shipped only the Nightly since 2026-10-28: the source release workflow started `nightly build`
+on the commit it decided (tools/ci/nightly.py). Game release publishing is disabled in Horizon-Offline.
 
 A kind releases when a pull request merged into main since its last published release changed one of its
 player-facing paths (GAME_PATHS, LAUNCHER_PATHS), once BATCH of them are waiting and the newest merged at least
@@ -64,6 +64,8 @@ FIRST_YEAR = 1000
 GAME_PREFIX = "v"
 LAUNCHER_PREFIX = "launcher@"
 OLD_LAUNCHER_PREFIX = "launcher-v"
+# Releases in the source repository must never be downgraded when the destination starts without tags.
+LAUNCHER_MIGRATION_FLOOR = (1, 0, 1)
 
 # What players run. Documentation (*.md), tests, benchmarks and harness probes (examples/) never count.
 GAME_PATHS = ["crates/", "xtask/", "packaging/", "Cargo.toml", "Cargo.lock", "research-lock.json"]
@@ -177,7 +179,7 @@ def release_line(path=LINE_FILE):
     return int(match[1]), int(match[2])
 
 
-def next_on_line(tags, prefix, line, line_file):
+def next_on_line(tags, prefix, line, line_file, minimum=None):
     """<prefix>MAJOR.MINOR.PATCH: the patch after the newest release tagged on the line (drafts and rolled-back
     releases included; a hand-made pre-release such as v0.3.0-rc.1 is not one), or .0. Never a line below one that
     has tags: GitHub's latest release only moves forward."""
@@ -187,6 +189,8 @@ def next_on_line(tags, prefix, line, line_file):
     if above:
         raise SystemExit(f"{line_file.name} says {major}.{minor}, but {prefix}{'.'.join(map(str, above[0][:3]))} exists")
     patches = [v[2] for v in versions if (v[0], v[1]) == line and v[3] is None]
+    if minimum and line == minimum[:2]:
+        patches.append(minimum[2])
     return f"{prefix}{major}.{minor}.{max(patches) + 1 if patches else 0}"
 
 
@@ -214,7 +218,7 @@ def next_launcher_tag(tags, minor, line=None):
     """launcher@MAJOR.MINOR.PATCH on a release line (a feature doesn't change the line); before 0.2,
     launcher-vX.Y.Z, the next patch or with minor the next minor."""
     if line:
-        return next_on_line(tags, LAUNCHER_PREFIX, line, LAUNCHER_LINE_FILE)
+        return next_on_line(tags, LAUNCHER_PREFIX, line, LAUNCHER_LINE_FILE, LAUNCHER_MIGRATION_FLOOR)
     versions = sorted((tuple(int(part) for part in re.findall(r"\d+", tag)) for tag in tags
                        if tag.startswith(OLD_LAUNCHER_PREFIX) and is_launcher_tag(tag)), reverse=True)
     major, minor_, patch = versions[0] if versions else (0, 1, 0)
@@ -407,6 +411,12 @@ def notes(kind, version, prs, issues, previous=None, added=None, removed=None, f
     parts = [PLAYERS] if kind == "game" else []
     if intro:
         parts.append(intro)
+    if kind == "launcher" and previous is None:
+        parts.append(
+            "First launcher release in Horizon-Offline. Existing installations still configured for "
+            "invisbleia/horizon-cracked cannot discover this release; install this version manually once. "
+            "Subsequent self-updates use Horizon-Offline and verify the built-in trusted signing key."
+        )
     if not shown:
         parts.append("Rebuilt from the latest main.")
     if kind == "launcher":
@@ -481,6 +491,8 @@ def gather(kind, head, releases=None):
     paths."""
     releases = published_releases() if releases is None else releases
     last = last_release(releases, kind)
+    if last is None and kind == "launcher":
+        return None, []
     base = last["tag_name"] if last else run("git", "rev-list", "--max-parents=0", head).split()[0]
     return last, merged_between(kind, base, head)
 

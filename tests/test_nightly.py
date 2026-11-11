@@ -120,14 +120,14 @@ class UntrustedBuildTests(unittest.TestCase):
     def setUp(self):
         self.game = (WORKFLOWS / "game-build.yml").read_text()
 
-    def test_no_nightly_build_is_trusted(self):
-        # The train only starts `nightly build` (Nightly only since 2026-10-28); it builds nothing itself.
-        release = (WORKFLOWS / "release.yml").read_text()
-        self.assertNotIn("game-build.yml", release)
-        self.assertIn("gh workflow run nightly-build.yml", release)
-        nightly_build = (WORKFLOWS / "nightly-build.yml").read_text()
-        self.assertIn("trusted: false", nightly_build)
-        self.assertNotIn("trusted: true", nightly_build)
+    def test_game_release_and_branch_publishing_workflows_are_absent(self):
+        for name in ("release.yml", "nightly-build.yml", "nightly-command.yml", "native-hook-stamp.yml"):
+            self.assertFalse((WORKFLOWS / name).exists(), name)
+        audit = (WORKFLOWS / "nightly.yml").read_text()
+        self.assertIn("workflow_dispatch:", audit)
+        self.assertNotIn("schedule:", audit)
+        self.assertNotIn("issues: write", audit)
+        self.assertNotIn("parity_issues.py", audit)
         self.assertIn("default: false", self.game.split("trusted:", 1)[1].split("developer_id:", 1)[0])
 
     def test_an_untrusted_build_neither_shares_nor_saves_the_release_cache(self):
@@ -176,22 +176,3 @@ class PruneBuildsTests(unittest.TestCase):
         branches = {"nightly-state": "s", "nightly/build-x": "x", "main": "m", "nightly/build-2026-10-01-1-fix": "f",
                     "feature/nightly/build-2026-10-01-1": "g", "nightly/build-2026-10-02-1": "n"}
         self.assertEqual(nightly.stale_builds(branches, set(), self.TODAY, 7), [])
-
-    def test_the_source_is_archived_from_git_signed_attached_and_tagged(self):
-        build = (WORKFLOWS / "nightly-build.yml").read_text()
-        pick = build.split("\n  build:", 1)[0]
-        self.assertIn('git archive --format=tar.gz --prefix="horizon-${SHA:0:7}/" -o horizon-source.tar.gz "$SHA"',
-                      pick)
-        sign = build.split("\n  sign:", 1)[1].split("\n  publish:", 1)[0]
-        self.assertIn("dist/horizon-source.tar.gz", sign.split("sign_release.sh nightly", 1)[1])
-        publish = build.split("\n  publish:", 1)[1].split("\n  answer:", 1)[0]
-        self.assertIn('"dist/horizon-source.tar.gz#Source of this Nightly', publish)
-        self.assertIn('nightly.py keep-source "$SHA" "$DATE"', publish)
-
-    def test_the_workflow_prunes_on_schedule_only(self):
-        build = (WORKFLOWS / "nightly-build.yml").read_text()
-        step = build.split("Old nightly/build-* branches deleted", 1)[1].split("- uses:", 1)[0]
-        self.assertIn("if: github.event_name == 'schedule'", step)
-        self.assertIn("prune-builds --days 7", step)
-        self.assertIn("GITHUB_STEP_SUMMARY", step)
-

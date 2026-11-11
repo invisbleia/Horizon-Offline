@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Nightly, the only build Horizon ships (.github/workflows/nightly-build.yml, docs/release-flow.md "Nightly").
+"""The source project's Nightly builder (.github/workflows/nightly-build.yml, disabled in Horizon-Offline).
 
     nightly.py pick [--force]      which commit tonight's nightly builds: GitHub outputs and nightly-notes.md
     nightly.py rotate              renames the current `nightly` pre-release to nightly-<its date>, frees the tag

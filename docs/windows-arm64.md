@@ -33,7 +33,7 @@ cargo build --release --locked --target aarch64-pc-windows-msvc
 
 The game archive, `horizon-windows-arm64.zip`, is attached to the [Nightly release](https://github.com/horizon-rust/horizon/releases/tag/nightly)
 and listed in its signed `SHA256SUMS`. The launcher archive, `horizon-launcher-windows-arm64.zip`,
-and `horizon-launcher-setup-arm64.exe` are attached to the [launcher releases](https://github.com/horizon-rust/horizon/releases)
+and `horizon-launcher-setup-arm64.exe` are attached to the [Horizon-Offline launcher releases](https://github.com/invisbleia/Horizon-Offline/releases)
 and listed in their signed `SHA256SUMS`.
 
 Launcher updates always follow the launcher's own process architecture. Game architecture is a
@@ -55,5 +55,5 @@ On Windows ARM64, `Graphics API: Auto` tries DirectX 12 before Vulkan following 
 in testing. Vulkan remains selectable in settings.
 
 The `Windows ARM64 game and launcher` check in `ci.yml` runs only by hand
-(`gh workflow run checks --ref <branch>`); the Nightly and launcher releases build these archives on
-every run.
+(`gh workflow run checks --ref main`). The game's Nightly builds game archives in
+`horizon-rust/horizon`; Horizon-Offline's `Release Launcher` workflow builds launcher archives.

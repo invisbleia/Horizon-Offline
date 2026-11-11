@@ -307,7 +307,7 @@ Horizon's own releases are read through Kira's read-only mirror
 off); when both fail the last saved answer is used, else the error names both. The release files
 themselves come from their download links, which that limit doesn't cover.
 
-It also updates itself from this fork's GitHub releases tagged `launcher@X.Y.Z` (the game's are `nightly`, and
+It also updates itself from Horizon-Offline's GitHub releases tagged `launcher@X.Y.Z` (the game's are `nightly`, and
 `vX.Y.Z` before 2026-10-28; neither is ever taken for the other). Before 0.2 they were `launcher-vX.Y.Z` and `vYYYY.MM.DD`:
 every 0.2 tag counts as newer than all of those (docs/versioning.md). It downloads the new build, checks it
 against the release's signed `SHA256SUMS`, and says "A new version is available" in the sidebar with

@@ -7,7 +7,7 @@ name: Release Launcher
 # launcher-vX.Y.Z, the patch after the last launcher tag or the next minor when a merged pull request is labelled
 # feature. The version and the tag are given to the build (HORIZON_LAUNCHER_VERSION, HORIZON_LAUNCHER_TAG): no bump
 # commits.
-# Never marked latest. Pushes to launcher branches only build. RELEASES_PAUSED=1 stops releases.
+# Never marked latest. RELEASES_PAUSED=1 stops releases.
 # Linux ships two archives of one binary: the .tar.gz the launcher updates itself from, and an
 # AppImage (packaging/linux/appimage.sh) for players without a distribution package, which replaces
 # itself instead (launcher/src/backend.rs).
@@ -23,7 +23,7 @@ name: Release Launcher
 
 on:
   push:
-    branches: [main, launcher, 'launcher-*']
+    branches: [main]
     paths:
       # Everything the launcher is built and packaged from, as tools/release_train.py's LAUNCHER_PATHS.
       - 'launcher/**'
@@ -289,7 +289,7 @@ jobs:
           client="${clients[0]}"
           echo "installed client: $client"
           [[ -f "$client" ]] || { echo "::error::no game installed under versions/"; exit 1; }
-          # The game's Linux build is the game's to keep portable (release.yml checks it): a
+          # The game's Linux build is the game's to keep portable: a
           # release linked to a Nix store is a warning here, not a broken launcher.
           soft() { if [[ "$RUNNER_OS" == "Linux" ]]; then "$@" || echo "::warning::$* failed"; else "$@"; fi; }
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -448,7 +448,7 @@ jobs:
           asset() {
             local file=$1
             if [[ -f "dist/$file" ]]; then
-              printf -- '- [%s](https://github.com/invisbleia/horizon-cracked/releases/download/%s/%s)\n' "$file" "$TAG" "$file"
+              printf -- '- [%s](https://github.com/invisbleia/Horizon-Offline/releases/download/%s/%s)\n' "$file" "$TAG" "$file"
             else
               printf -- '- `%s` — not built\n' "$file"
             fi

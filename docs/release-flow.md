@@ -1,10 +1,9 @@
 # Release flow
 
-How a change gets from a pull request to players: the checks a pull request passes, how it merges, and the
-automatic releases that follow. Releases are automatic and frequent so the latest Horizon is always playable.
-Since 2026-10-28 Horizon ships only the **Nightly** (Ludovic's decision; the Team proposed it): the batch train builds
-a Nightly instead of a `vX.Y.Z` release, it is published once its smoke test passed and no `release-blocker` is open,
-and every launcher and `horizon-server update` install it ([Nightly only](#nightly-only)).
+This document includes the source project's release and validation design. In Horizon-Offline, the launcher release
+workflow is the only game/launcher release publisher; game releases remain in `horizon-rust/horizon`. The old game
+release and Nightly publishing workflows are intentionally not present here, and Nightly branch automation is
+disabled. The game source and validation code remain in this repository.
 
 ## Pull request checks
 
@@ -331,17 +330,32 @@ Every game and launcher release carries `SHA256SUMS` (the archives' SHA-256, `sh
 so a signed list can't be reused under another tag.
 
 - A `sign` job of its own makes them: `tools/ci/sign_release.sh` runs the runner's `sha256sum` and OpenSSL and
-  nothing else. Game releases use `RELEASE_SIGNING_KEY` from the `release` environment and the game keys in
-  `crates/horizon-release-sign/release-keys.txt`.
-- This fork's launcher releases use the separate `LAUNCHER_RELEASE_SIGNING_KEY` Actions secret and
-  `crates/horizon-release-sign/launcher-release-keys.txt`. The publish job verifies the signature against the
-  launcher keys before publishing; a missing secret or a key that is not listed there fails the release. The
-  launcher uses the game key for game downloads and the launcher key for its own updates.
-- To create or replace this fork's launcher key, generate it directly into the repository secret and a temporary
-  public-key file: `cargo run --locked -p horizon-release-sign -- keygen --public-out /tmp/launcher-key.pub |
-  gh secret set LAUNCHER_RELEASE_SIGNING_KEY --repo invisbleia/horizon-cracked`. Add the new public key from that
-  file to `launcher-release-keys.txt` in the same change; do not replace an old key while already-published
-  releases are signed with it. Never copy a private key into the repository or a chat.
+  nothing else. In the source repository, game releases use `RELEASE_SIGNING_KEY` from the `release` environment
+  and the game keys in `crates/horizon-release-sign/release-keys.txt`.
+- Horizon-Offline launcher releases use the existing `LAUNCHER_RELEASE_SIGNING_KEY` Actions secret and
+  `crates/horizon-release-sign/launcher-release-keys.txt`. Before enabling releases, the repository owner must open
+  **Settings → Secrets and variables → Actions → New repository secret**, name it `LAUNCHER_RELEASE_SIGNING_KEY`,
+  and set its value to the base64 Ed25519 private key matching a public key already in that file. Do not fetch or
+  regenerate the source repository's private key, replace the trusted public keys, or ship a key beside a release.
+  The owner must copy the existing compatible secret through GitHub Settings; the agent must not read or expose the
+  old repository's secret. Do not run a release before this secret is configured. The publish job verifies the
+  checksums against the compiled trusted keys and fails closed if signing or verification fails. This signature is
+  not Windows Authenticode.
+- The launcher workflow uses the built-in `github.token`; only its publish job has `contents: write`. No custom
+  publish token is needed. Optional configuration: `HORIZON_MSA_CLIENT_ID` is a repository variable for Microsoft
+  sign-in; `HORIZON_CURSEFORGE_API_KEY` is a repository secret for the CurseForge mod source; `WINDOWS_ARM_RUNNER`
+  can select a compatible Windows ARM64 runner; `MACOS_SIGN_IDENTITY` is a repository variable for Developer ID
+  signing. Without the first two, those optional launcher features are not configured. Without the identity and
+  matching macOS runner/keychain/notarization setup, macOS builds may be ad-hoc signed. The app's platform code
+  signing is separate from signed `SHA256SUMS`.
+- Retained CI and game validation workflows can use self-hosted labels described in [CI runners](ci-runners.md).
+  Configure `SELF_HOSTED_CI` to route supported jobs to GitHub-hosted runners when no Horizon runners are attached;
+  the manual nightly audit specifically requires a self-hosted macOS runner labelled `horizon-game`. The reusable
+  `game-build.yml` also requires the configured game runners if a trusted build caller is added later; its trusted
+  macOS runner is selected by `MAC_RUNNER`. Do not copy game-release signing secrets into Horizon-Offline.
+- Existing installations compiled with the old launcher repository URL cannot find Horizon-Offline releases. No
+  bridge release to the old repository is authorized; update those installations once manually from the
+  Horizon-Offline Releases page. The next update will use Horizon-Offline.
 - Older launcher releases were signed with a temporary per-release key, not the persistent launcher key. An
   installed launcher from that transition cannot verify the first persistent-key release, so install that release
   once manually from the official launcher release page. After that, self-updates use the built-in persistent key.
