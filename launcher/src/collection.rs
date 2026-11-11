@@ -15,7 +15,6 @@ pub(crate) struct Collection {
     pub view: Option<(String, String)>,
     /// What "Delete my data" did, or why it could not.
     pub note: Option<String>,
-    pub confirm_delete: bool,
 }
 
 impl Collection {
@@ -27,7 +26,6 @@ impl Collection {
             draft: Choices::NONE,
             view: None,
             note: None,
-            confirm_delete: false,
         }
     }
 }
@@ -268,147 +266,4 @@ impl Launcher {
             .child(card)
     }
 
-    /// Settings' data collection: a switch per kind, then the player's data.
-    pub(crate) fn collection_section(&mut self, cx: &mut Context<Self>) -> Div {
-        let t = self.theme;
-        let consent = self.collection.consent.clone();
-        let mut list = div().flex().flex_col().border_t_1().border_color(t.rule);
-        for (i, &(kind, name, what)) in telemetry::SWITCHES.iter().enumerate() {
-            let on = !consent.needs_asking() && consent.choices.allows(kind);
-            let toggle = switch(kind_id("data", kind), on, &t).on_click(cx.listener(
-                move |this, _: &ClickEvent, _, cx| {
-                    let mut choices = if this.collection.consent.needs_asking() {
-                        Choices::NONE
-                    } else {
-                        this.collection.consent.choices
-                    };
-                    choices.set(kind, !on);
-                    this.answer_consent(choices);
-                    cx.notify();
-                },
-            ));
-            list = list.child(index_row(
-                i + 1,
-                tr(name),
-                Some(div().child(tr(what)).into_any_element()),
-                Some(toggle.into_any_element()),
-                &t,
-            ));
-        }
-        list = list.child(index_row(
-            telemetry::SWITCHES.len() + 1,
-            tr(telemetry::PING_NAME),
-            Some(div().child(tr(telemetry::PING)).into_any_element()),
-            Some(always_on(&t).into_any_element()),
-            &t,
-        ));
-        let waiting = horizon_telemetry::outbox::pending(&telemetry::home()).len();
-        let id = match consent.install_id.as_str() {
-            "" => tr("No install ID: nothing has been collected").to_string(),
-            id => trf(
-                "Install ID {prefix}…{suffix}",
-                &[("prefix", &id[..4]), ("suffix", &id[id.len() - 4..])],
-            ),
-        };
-        let server = if horizon_telemetry::endpoint().is_some() {
-            trf(
-                "{count} waiting to be sent",
-                &[("count", &waiting.to_string())],
-            )
-        } else {
-            tr("Sending is turned off here (HORIZON_TELEMETRY_URL=off)").into()
-        };
-        let confirm = self.collection.confirm_delete;
-        let actions = div()
-            .flex()
-            .gap(px(8.))
-            .child(
-                button(
-                    "data-view",
-                    if self.collection.view.is_some() {
-                        "Hide"
-                    } else {
-                        "View what would be sent"
-                    },
-                    Kind::Ghost,
-                    &t,
-                )
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    this.toggle_view();
-                    cx.notify();
-                })),
-            )
-            .child(
-                button(
-                    "data-delete",
-                    if confirm {
-                        "Delete everything?"
-                    } else {
-                        "Delete my data"
-                    },
-                    Kind::Secondary,
-                    &t,
-                )
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    if this.collection.confirm_delete {
-                        this.collection.note = Some(match telemetry::delete_my_data() {
-                            Ok(done) => done,
-                            Err(e) => e,
-                        });
-                        this.collection.consent = telemetry::consent();
-                        this.collection.view = None;
-                    }
-                    this.collection.confirm_delete = !this.collection.confirm_delete;
-                    cx.notify();
-                })),
-            );
-        list = list.child(index_row(
-            telemetry::SWITCHES.len() + 2,
-            tr("Your data"),
-            Some(
-                div()
-                    .font_family(theme::MONO)
-                    .child(format!("{id}  ·  {server}"))
-                    .into_any_element(),
-            ),
-            Some(actions.into_any_element()),
-            &t,
-        ));
-        div()
-            .flex()
-            .flex_col()
-            .gap(px(16.))
-            .child(
-                text(theme::HEADING)
-                    .text_color(t.ink)
-                    .child(tr("Data collection")),
-            )
-            .child(
-                text(theme::UI)
-                    .max_w(px(600.))
-                    .text_color(t.muted)
-                    .child(tr(
-                        "Each switch is off unless you turn it on. What it sends is below it; the privacy page on playhorizon.dev says how long it is kept.",
-                    )),
-            )
-            .child(list)
-            .child(
-                text(theme::CAPTION)
-                    .max_w(px(600.))
-                    .text_color(t.muted)
-                    .child(tr(telemetry::NEVER)),
-            )
-            .children(
-                self.collection
-                    .note
-                    .clone()
-                    .map(|n| text(theme::UI).text_color(t.ink).child(n)),
-            )
-            .children(
-                self.collection
-                    .view
-                    .as_ref()
-                    .map(|v| json_view(v, &t, &self.collection.json_scroll)),
-            )
-    }
 }
