@@ -62,7 +62,7 @@ impl Launcher {
                 this.settings.theme = id.map(str::to_owned);
                 this.settings.accent = match themes::theme(id) {
                     Some(picked) => picked.accent.accent(),
-                    None => Accent::VIOLET,
+                    None => Accent::default(),
                 };
                 this.save_settings();
                 this.restyle = true;
@@ -416,7 +416,7 @@ impl Launcher {
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     let s = &mut this.settings;
                     s.appearance = Default::default();
-                    s.accent = Accent::VIOLET;
+                    s.accent = Accent::default();
                     s.theme = None;
                     s.glass = None;
                     s.blur = None;
