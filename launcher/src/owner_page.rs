@@ -57,6 +57,9 @@ impl Launcher {
                 220.,
                 cx,
             )
+            // The card's plate is light: outline the field so it reads on it, like the chips.
+            .border_1()
+            .border_color(crate::glass_ui::white(0.15))
             .into_any_element()
         });
         let configured = account::client_id().is_some();
@@ -363,7 +366,7 @@ impl Launcher {
             card = card.child(
                 div()
                     .mt(px(16.))
-                    .child(ui::text(13., FontWeight::MEDIUM, ink::BODY).child(tr("Offline names")))
+                    .child(ui::text(13., FontWeight::MEDIUM, ink::BODY).child(tr("Name")))
                     .child(div().mt(px(8.)).child(field)),
             );
         }
