@@ -87,6 +87,16 @@ class ReleaseTrainTests(unittest.TestCase):
         self.assertEqual(train.next_game_tag(before, today), "v2026.10.23")
         self.assertEqual(train.next_launcher_tag(after, minor=False), "launcher-v0.16.1")
 
+    def test_launcher_has_its_own_release_line(self):
+        tags = ["launcher@0.2.1", "launcher@0.2.2"]
+        line = train.release_line(train.LAUNCHER_LINE_FILE)
+        self.assertEqual(line, (1, 0))
+        self.assertEqual(train.next_launcher_tag(tags, minor=False, line=line), "launcher@1.0.0")
+        self.assertTrue(train.first_on_line(tags, "launcher@", line))
+        self.assertEqual(train.release_line(train.LINE_FILE), (0, 2))
+        with self.assertRaisesRegex(SystemExit, r"launcher-release-line\.txt"):
+            train.next_launcher_tag(tags + ["launcher@1.2.0"], minor=False, line=line)
+
     def test_the_release_line_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "release-line.txt"

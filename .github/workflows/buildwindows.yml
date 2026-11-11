@@ -40,110 +40,49 @@ jobs:
         shell: bash
         run: cp target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
 
-      - name: Package the setup executable
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item launcher/target/release/horizon-launcher-setup.exe dist/
-          Push-Location dist
-          try {
-            Compress-Archive -Path horizon-launcher-setup.exe `
-              -DestinationPath horizon-launcher-update.zip -CompressionLevel NoCompression -Force
-          } finally {
-            Pop-Location
-          }
-
-      - name: Check ZIP contents
-        shell: pwsh
-        run: |
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $archive = [System.IO.Compression.ZipFile]::OpenRead("dist/horizon-launcher-update.zip")
-          try {
-            if ($archive.Entries.Count -ne 1 -or $archive.Entries[0].FullName -ne "horizon-launcher-setup.exe") {
-              throw "The update ZIP must contain only horizon-launcher-setup.exe at its root."
-            }
-          } finally {
-            $archive.Dispose()
-          }
-
-      - name: Upload unsigned build for signing
-        uses: actions/upload-artifact@v7
-        with:
-          name: horizon-launcher-update-payload
-          path: dist/horizon-launcher-update.zip
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 7
-
-      - name: Report artifact
-        run: echo "Built horizon-launcher-update.zip with the new setup executable."
-
-  sign:
-    name: Sign the Windows update ZIP
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-          sparse-checkout: tools/ci/sign_release.sh
-          sparse-checkout-cone-mode: false
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: horizon-launcher-update-payload
-          path: dist
-
-      - name: Sign the ZIP checksum
+      - name: Sign the checksums (SHA256SUMS, SHA256SUMS.sig)
+        working-directory: launcher
+        shell: bash
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.LAUNCHER_RELEASE_SIGNING_KEY }}
-          TAG: buildwindows-${{ github.sha }}
         run: |
           if [[ -z "$RELEASE_SIGNING_KEY" ]]; then
             echo "::error::Set the LAUNCHER_RELEASE_SIGNING_KEY Actions secret to the base64 Ed25519 private key for launcher-release-keys.txt."
             exit 1
           fi
-          bash tools/ci/sign_release.sh "$TAG" dist/horizon-launcher-update.zip
+          bash ../tools/ci/sign_release.sh buildwindows-test \
+            target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: horizon-launcher-update
-          path: |
-            dist/horizon-launcher-update.zip
-            dist/SHA256SUMS
-            dist/SHA256SUMS.sig
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 7
-
-  verify:
-    name: Verify the signed Windows update ZIP
-    needs: sign
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: horizon-launcher-update
-          path: dist
-
-      - name: Verify the checksum signature and ZIP
+      - name: The signature, checked as launchers check it
+        shell: bash
         run: |
           key=()
           while IFS= read -r line || [[ -n "$line" ]]; do
             [[ -z "$line" || "$line" == \#* ]] && continue
             key+=(--key "$line")
           done < crates/horizon-release-sign/launcher-release-keys.txt
+          if [[ ${#key[@]} -eq 0 ]]; then
+            echo "::error::launcher-release-keys.txt has no trusted launcher release keys."
+            exit 1
+          fi
           cargo run --locked --quiet -p horizon-release-sign -- verify \
-            --tag "buildwindows-${GITHUB_SHA}" "${key[@]}" --publishing dist
+            --tag buildwindows-test "${key[@]}" launcher/target/release
+
+      - name: Upload launcher updater
+        uses: actions/upload-artifact@v7
+        with:
+          name: horizon-launcher-update
+          path: launcher/target/release/horizon-launcher-setup.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: signature
+          path: launcher/target/release/SHA256SUMS*
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Report artifact
+        run: echo "Download and extract horizon-launcher-update, then run horizon-launcher-setup.exe. The signature artifact carries SHA256SUMS and SHA256SUMS.sig, checked above as launchers check them."

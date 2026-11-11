@@ -3,7 +3,7 @@ name: Release Launcher
 # push to main that changes the launcher or a crate it builds in (the paths below),
 # every 10 minutes (a release waiting for merges to settle goes out) and by hand, tools/release_train.py decides as
 # for the game.
-# A release is launcher@X.Y.Z on the release line in .github/release-line.txt (docs/versioning.md); without it
+# A release is launcher@X.Y.Z on the line in .github/launcher-release-line.txt (docs/versioning.md); without it
 # launcher-vX.Y.Z, the patch after the last launcher tag or the next minor when a merged pull request is labelled
 # feature. The version and the tag are given to the build (HORIZON_LAUNCHER_VERSION, HORIZON_LAUNCHER_TAG): no bump
 # commits.
@@ -39,6 +39,8 @@ on:
       - 'packaging/linux/**'
       - 'packaging/icons/**'
       - '.github/workflows/releaselauncher.yml'
+      - '.github/launcher-release-line.txt'
+      - 'tools/release_train.py'
   schedule:
     - cron: '7-59/10 * * * *'
   workflow_dispatch:
@@ -458,13 +460,9 @@ jobs:
           done
       - name: Publish ${{ needs.decide.outputs.tag }}
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.decide.outputs.tag }}
         run: |
-          if [[ -z "$GH_TOKEN" ]]; then
-            echo "::error::Set the RELEASE_PUBLISH_TOKEN Actions secret to a fine-grained token with Contents: read and write access to this repository."
-            exit 1
-          fi
           signature=(); [[ -f dist/SHA256SUMS.sig ]] && signature=(dist/SHA256SUMS.sig)
           gh release create "$TAG" --target "${{ needs.decide.outputs.head }}" --title "$(cat notes/title.txt)" \
             --notes-file notes/body.md --latest=false dist/horizon-launcher-* dist/SHA256SUMS "${signature[@]}"

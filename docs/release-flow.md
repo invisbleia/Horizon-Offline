@@ -241,8 +241,8 @@ commits) since the commit the published Nightly was built on:
 
 Ludovic decided on 2026-10-28 that Horizon ships only the Nightly. No `vX.Y.Z` game release is made any more:
 the last one stays GitHub's *latest*, so launchers and servers from before the switch (which don't read Nightlies)
-keep a working build until they update themselves. `.github/release-line.txt` still numbers the launcher's releases
-(`launcher@X.Y.Z`).
+keep a working build until they update themselves. `.github/launcher-release-line.txt` numbers the launcher's
+releases (`launcher@X.Y.Z`), independently from the game's `.github/release-line.txt`.
 
 - **Launchers** (#3342) install the current `nightly` pre-release as their update, as the version
   `nightly-<date>-<commit>`, after checking its checksums signed for the Nightly channel. A player on the newest
@@ -415,8 +415,8 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
 - `tools/release_train.py decide --kind launcher` counts the pull requests merged since the last published
   launcher release that changed those paths (not `launcher/links.json`, which the launcher reads from main, nor
   tests or Markdown), with the same batching rule (5 pull requests settled 5 minutes, or the oldest 6 hours), `release-now`, `skip-release` and `RELEASES_PAUSED`.
-- The tag is `launcher@X.Y.Z` on the release line (`launcher@0.2.0` first; the game and the launcher count their
-  patches separately). Without `.github/release-line.txt`, `launcher-vX.Y.Z`: the patch after the last launcher tag,
+- The tag is `launcher@X.Y.Z` on `.github/launcher-release-line.txt` (`launcher@1.0.0` first; game and launcher use
+  separate lines). Without that file, `launcher-vX.Y.Z`: the patch after the last launcher tag,
   or the next minor (`X.Y+1.0`) when one of those pull requests is labelled `feature`. `launcher-v0.2.0` was taken
   long before 0.2, hence the new prefix.
 - No version-bump commits: the build gets the version in `HORIZON_LAUNCHER_VERSION` and the tag in
@@ -433,9 +433,8 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
 - When starting a release manually, the optional `added`, `removed` and `fixed` inputs write those sections in the
   release notes. Leave all three blank to keep the automatically generated pull-request notes.
 - Published with `--latest=false`: the repository's latest release stays a game release. Notes list the pull
-  requests under New and Fixed; Kira posts launcher releases without pinging. The publish step uses the
-  `RELEASE_PUBLISH_TOKEN` Actions secret (a fine-grained token with Contents read/write for this repository);
-  `GITHUB_TOKEN` may be denied release creation by GitHub even when workflow write permissions are enabled.
+  requests under New and Fixed; Kira posts launcher releases without pinging. The publish step uses the workflow's
+  `GITHUB_TOKEN` with `contents: write`; no extra publishing secret is needed.
 - Windows also publishes `horizon-launcher-setup.exe` (x64) and `horizon-launcher-setup-arm64.exe`, the launcher's
   binary under another name: with no
   arguments it opens the per-user setup (`launcher/src/installer.rs`) instead of Home, and
