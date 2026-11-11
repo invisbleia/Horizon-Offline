@@ -394,13 +394,13 @@ def line_intro(kind, version, previous):
             f"`horizon-server update --version {version}`.")
 
 
-def notes(kind, version, prs, issues, previous=None):
-    """(title, body) of a release. previous: the release before it, for a line's first release."""
+def notes(kind, version, prs, issues, previous=None, added=None, removed=None, fixed=None):
+    """(title, body) of a release. Launcher sections can be overridden with manual release details."""
     shown = [pr for pr in prs if pr["paths"] and "skip-release" not in pr["labels"]]
     new = [pr for pr in shown if "feature" in pr["labels"]]
-    fixed = [pr for pr in shown if "feature" not in pr["labels"]]
+    fixed_prs = [pr for pr in shown if "feature" not in pr["labels"]]
     if kind == "game":
-        title = f"Horizon {version.removeprefix(GAME_PREFIX)}" + (f": {summary(new, fixed)}" if shown else "")
+        title = f"Horizon {version.removeprefix(GAME_PREFIX)}" + (f": {summary(new, fixed_prs)}" if shown else "")
     else:
         title = f"Horizon launcher {version.removeprefix(OLD_LAUNCHER_PREFIX).removeprefix(LAUNCHER_PREFIX)}"
     intro = line_intro(kind, version, previous)
@@ -409,10 +409,21 @@ def notes(kind, version, prs, issues, previous=None):
         parts.append(intro)
     if not shown:
         parts.append("Rebuilt from the latest main.")
-    if new:
-        parts.append("### New\n" + "\n".join(map(bullet, new)))
-    if fixed:
-        parts.append("### Fixed\n" + "\n".join(map(bullet, fixed)))
+    if kind == "launcher":
+        if added:
+            parts.append("### Added\n" + added.strip())
+        elif new:
+            parts.append("### Added\n" + "\n".join(map(bullet, new)))
+        parts.append("### Removed\n" + (removed.strip() if removed else "No removals specified."))
+        if fixed:
+            parts.append("### Fixed\n" + fixed.strip())
+        elif fixed_prs:
+            parts.append("### Fixed\n" + "\n".join(map(bullet, fixed_prs)))
+    else:
+        if new:
+            parts.append("### New\n" + "\n".join(map(bullet, new)))
+        if fixed_prs:
+            parts.append("### Fixed\n" + "\n".join(map(bullet, fixed_prs)))
     if issues and kind == "game":
         parts.append("### Known issues\n" + "\n".join(issues))
     contributors = sorted({pr["author"] for pr in shown if pr["author"] and pr["author"] != MAINTAINER})
@@ -530,6 +541,9 @@ def main():
     parser.add_argument("--kind", choices=["game", "launcher"], required=True)
     parser.add_argument("--head", help="the commit to release (default: the newest commit on main whose checks passed)")
     parser.add_argument("--tag", help="notes: the release's tag")
+    parser.add_argument("--added", help="notes: replace the launcher's automatic Added section")
+    parser.add_argument("--removed", help="notes: describe launcher changes removed in this release")
+    parser.add_argument("--fixed", help="notes: replace the launcher's automatic Fixed section")
     parser.add_argument("--force", action="store_true", help="release even without player-facing changes, before merges settle, while paused or before parity-main passed")
     parser.add_argument("--out", type=Path, help="notes: write title.txt and body.md here")
     parser.add_argument("--now", help="the time to decide at (ISO 8601; default now)")
@@ -568,7 +582,8 @@ def main():
     if args.command == "notes":
         version = args.tag or "unreleased"
         previous = last["tag_name"] if last and last["tag_name"] != version else None
-        title, body = notes(args.kind, version, prs, known_issues(), previous=previous)
+        title, body = notes(args.kind, version, prs, known_issues(), previous=previous,
+                            added=args.added, removed=args.removed, fixed=args.fixed)
         if args.out:
             args.out.mkdir(parents=True, exist_ok=True)
             (args.out / "title.txt").write_text(title + "\n")

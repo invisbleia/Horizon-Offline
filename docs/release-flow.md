@@ -430,10 +430,13 @@ and by hand; pushes to `launcher` and `launcher-*` branches only build.
   `-f force=true` selects the current commit and publishes immediately without running tests. The smoke test installs
   the newest game build for that platform; Intel macOS skips only the install step while no matching build is
   available yet, and Windows ARM64 installs the x64 build (under emulation) from a Nightly without an ARM64 one.
-- When starting a release manually, the optional `added`, `removed` and `fixed` inputs write those sections in the
-  release notes. Leave all three blank to keep the automatically generated pull-request notes.
+- Launcher release notes list merged feature pull requests under **Added**, other pull requests under **Fixed**, and
+  **Removed** items as "No removals specified" unless given explicitly. On a manual run, `added` and `fixed` replace
+  their automatically generated sections when supplied; `removed` fills its section. The release page and the final
+  workflow summary list download links for every built Linux, Apple Silicon/Intel macOS, and Windows x64/ARM64
+  archive and installer; an optional Windows ARM64 asset is marked when it was not built.
 - Published with `--latest=false`: the repository's latest release stays a game release. Notes list the pull
-  requests under New and Fixed; Kira posts launcher releases without pinging. The publish step uses the workflow's
+  requests under Added and Fixed; Kira posts launcher releases without pinging. The publish step uses the workflow's
   `GITHUB_TOKEN` with `contents: write`; no extra publishing secret is needed.
 - Windows also publishes `horizon-launcher-setup.exe` (x64) and `horizon-launcher-setup-arm64.exe`, the launcher's
   binary under another name: with no

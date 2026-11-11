@@ -54,15 +54,15 @@ on:
         type: boolean
         default: false
       added:
-        description: Changes added in this release; leave blank to use automatic notes
+        description: Optional Added section; blank keeps the automatic pull request list
         type: string
         required: false
       removed:
-        description: Changes removed in this release
+        description: Changes removed in this release; blank says none were specified
         type: string
         required: false
       fixed:
-        description: Changes fixed in this release
+        description: Optional Fixed section; blank keeps the automatic pull request list
         type: string
         required: false
 
@@ -418,21 +418,12 @@ jobs:
           RELEASE_REMOVED: ${{ inputs.removed }}
           RELEASE_FIXED: ${{ inputs.fixed }}
         run: |
+          overrides=()
+          [[ -z "$RELEASE_ADDED" ]] || overrides+=(--added "$RELEASE_ADDED")
+          [[ -z "$RELEASE_REMOVED" ]] || overrides+=(--removed "$RELEASE_REMOVED")
+          [[ -z "$RELEASE_FIXED" ]] || overrides+=(--fixed "$RELEASE_FIXED")
           python3 tools/release_train.py notes --kind launcher --tag "${{ needs.decide.outputs.tag }}" \
-            --head "${{ needs.decide.outputs.head }}" --out notes > /dev/null
-          if [[ -n "$RELEASE_ADDED" || -n "$RELEASE_REMOVED" || -n "$RELEASE_FIXED" ]]; then
-            : > notes/body.md
-            if [[ -n "$RELEASE_ADDED" ]]; then
-              printf '## Added\n\n%s\n\n' "$RELEASE_ADDED" >> notes/body.md
-            fi
-            if [[ -n "$RELEASE_REMOVED" ]]; then
-              printf '## Removed\n\n%s\n\n' "$RELEASE_REMOVED" >> notes/body.md
-            fi
-            if [[ -n "$RELEASE_FIXED" ]]; then
-              printf '## Fixed\n\n%s\n\n' "$RELEASE_FIXED" >> notes/body.md
-            fi
-          fi
-          { echo "## $(cat notes/title.txt)"; echo; cat notes/body.md; } >> "$GITHUB_STEP_SUMMARY"
+            --head "${{ needs.decide.outputs.head }}" --out notes "${overrides[@]}" > /dev/null
       - uses: actions/download-artifact@v8
         with:
           path: dist
@@ -450,6 +441,41 @@ jobs:
           fi
           cargo run --locked --quiet -p horizon-release-sign -- verify \
             --tag "${{ needs.decide.outputs.tag }}" "${key[@]}" --publishing dist
+      - name: List every platform build
+        env:
+          TAG: ${{ needs.decide.outputs.tag }}
+        run: |
+          asset() {
+            local file=$1
+            if [[ -f "dist/$file" ]]; then
+              printf -- '- [%s](https://github.com/invisbleia/horizon-cracked/releases/download/%s/%s)\n' "$file" "$TAG" "$file"
+            else
+              printf -- '- `%s` — not built\n' "$file"
+            fi
+          }
+          {
+            echo '### Builds'
+            echo
+            echo '#### Linux'
+            asset horizon-launcher-linux-x86_64.tar.gz
+            asset horizon-launcher-linux-x86_64.AppImage
+            echo
+            echo '#### macOS — Apple Silicon'
+            asset horizon-launcher-macos-arm64.zip
+            asset horizon-launcher-macos-arm64.dmg
+            echo
+            echo '#### macOS — Intel'
+            asset horizon-launcher-macos-x64.zip
+            asset horizon-launcher-macos-x64.dmg
+            echo
+            echo '#### Windows — x64'
+            asset horizon-launcher-windows-x64.zip
+            asset horizon-launcher-setup.exe
+            echo
+            echo '#### Windows — ARM64'
+            asset horizon-launcher-windows-arm64.zip
+            asset horizon-launcher-setup-arm64.exe
+          } >> notes/body.md
       # Never marked latest: Horizon's own releases stay the repository's latest.
       - name: The Windows ARM64 launcher, if it built
         # Its build may fail without holding the release (continue-on-error): the release then has no ARM64
@@ -466,6 +492,13 @@ jobs:
           signature=(); [[ -f dist/SHA256SUMS.sig ]] && signature=(dist/SHA256SUMS.sig)
           gh release create "$TAG" --target "${{ needs.decide.outputs.head }}" --title "$(cat notes/title.txt)" \
             --notes-file notes/body.md --latest=false dist/horizon-launcher-* dist/SHA256SUMS "${signature[@]}"
+      - name: Release summary
+        run: |
+          {
+            echo "## Published $(cat notes/title.txt)"
+            echo
+            cat notes/body.md
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: launcher-release-notes

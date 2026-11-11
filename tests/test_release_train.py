@@ -227,6 +227,24 @@ class ReleaseTrainTests(unittest.TestCase):
                                                          pr(10, "Game menus", labels=["feature"])], [])
         self.assertEqual(title, "Horizon 2026.10.15.2: Game menus, Horizon's mark", "proper nouns keep their capital")
 
+    def test_launcher_notes_list_added_removed_fixed_and_keep_automatic_details(self):
+        prs = [pr(5, "New controller support", labels=["feature"]),
+               pr(6, "Fix launcher startup")]
+        _, body = train.notes("launcher", "launcher@1.0.1", prs, [])
+        self.assertIn("### Added\n- New controller support (#5)", body)
+        self.assertIn("### Removed\nNo removals specified.", body)
+        self.assertIn("### Fixed\n- Fix launcher startup (#6)", body)
+
+        _, body = train.notes("launcher", "launcher@1.0.1", prs, [],
+                              added="A manually described addition.",
+                              removed="The deprecated import option.",
+                              fixed="A manually described fix.")
+        self.assertIn("### Added\nA manually described addition.", body)
+        self.assertIn("### Removed\nThe deprecated import option.", body)
+        self.assertIn("### Fixed\nA manually described fix.", body)
+        self.assertNotIn("New controller support", body)
+        self.assertNotIn("Fix launcher startup", body)
+
     def test_a_long_release_is_named_after_its_first_titles(self):
         prs = [pr(n, f"Change number {n} with a fairly long title") for n in range(1, 10)]
         title, _ = train.notes("game", "v2026.10.15", prs, [])
