@@ -50,7 +50,7 @@ jobs:
             echo "::error::Set the LAUNCHER_RELEASE_SIGNING_KEY Actions secret to the base64 Ed25519 private key for launcher-release-keys.txt."
             exit 1
           fi
-          bash tools/ci/sign_release.sh buildwindows-test \
+          bash ../tools/ci/sign_release.sh buildwindows-test \
             target/release/horizon-launcher.exe target/release/horizon-launcher-setup.exe
 
       - name: The signature, checked as launchers check it
