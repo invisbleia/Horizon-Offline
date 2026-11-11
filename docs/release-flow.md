@@ -339,12 +339,21 @@ so a signed list can't be reused under another tag.
   launcher uses the game key for game downloads and the launcher key for its own updates.
 - To create or replace this fork's launcher key, generate it directly into the repository secret and a temporary
   public-key file: `cargo run --locked -p horizon-release-sign -- keygen --public-out /tmp/launcher-key.pub |
-  gh secret set LAUNCHER_RELEASE_SIGNING_KEY --repo invisbleia/horizon-cracked`. Add the public key from that
-  file to `launcher-release-keys.txt` in the same change; never copy the private key into the repository or a chat.
+  gh secret set LAUNCHER_RELEASE_SIGNING_KEY --repo invisbleia/horizon-cracked`. Add the new public key from that
+  file to `launcher-release-keys.txt` in the same change; do not replace an old key while already-published
+  releases are signed with it. Never copy a private key into the repository or a chat.
 - Older launcher releases were signed with a temporary per-release key, not the persistent launcher key. An
   installed launcher from that transition cannot verify the first persistent-key release, so install that release
   once manually from the official launcher release page. After that, self-updates use the built-in persistent key.
   Do not work around this by trusting a key shipped beside a release or by disabling signature verification.
+- The `buildwindows` workflow can also produce a ZIP containing the newest Windows setup executable. On `main`,
+  a separate job signs its SHA256SUMS with the persistent launcher key and another job verifies the signature.
+  This is Horizon's Ed25519 checksum signature, not Microsoft Authenticode; the artifact is a manual setup build,
+  not a published release for the launcher's automatic updater.
+  Download the `horizon-launcher-update` artifact (not the unsigned build payload); its outer artifact ZIP contains
+  `horizon-launcher-update.zip`, `SHA256SUMS` and `SHA256SUMS.sig`. The signature tag is
+  `buildwindows-<workflow commit SHA>`. Releases signed by a temporary key cannot be updated in place: install this
+  setup build manually once, then its embedded persistent key can verify subsequent launcher releases.
 - Making the key: `tools/ci/new_release_key.sh` pipes a new key from `horizon-release-sign keygen` straight into
   `gh secret set RELEASE_SIGNING_KEY --env release` and prints only the public key, which then goes into
   release-keys.txt by pull request.

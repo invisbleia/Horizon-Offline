@@ -415,6 +415,11 @@ mod tests {
     }
 
     #[test]
+    fn the_built_in_launcher_keys_file_parses() {
+        assert!(parse_keys(LAUNCHER_KEYS).is_ok());
+    }
+
+    #[test]
     fn releases_from_before_signing_keep_their_pinned_digests() {
         let mut seen = std::collections::HashSet::new();
         for line in LEGACY.lines().map(str::trim) {
