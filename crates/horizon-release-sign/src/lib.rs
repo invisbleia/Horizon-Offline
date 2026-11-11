@@ -117,7 +117,8 @@ pub fn verify(
     if !signed {
         return Err(format!(
             "{tag}'s signature doesn't match a trusted release key, so it was not installed. \
-             The download may have been tampered with: please report it on Discord or GitHub."
+             Install it once by hand from the project's Releases page instead; the updates \
+             after that install themselves."
         ));
     }
     let text = std::str::from_utf8(sums).map_err(|_| format!("{SUMS} is not text"))?;

@@ -130,17 +130,15 @@ impl Launcher {
                         cx.notify();
                     }),
                 ))
-                .when(!plays, |d| {
-                    d.child(self.chip_icon(
-                        SharedString::from(format!("offline-forget-{i}")),
-                        "cancel-01",
-                        cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            this.forget_offline(&forget);
-                            cx.notify();
-                        }),
-                    ))
-                }),
+                .child(self.chip_icon(
+                    SharedString::from(format!("offline-forget-{i}")),
+                    "cancel-01",
+                    cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        cx.stop_propagation();
+                        this.forget_offline(&forget);
+                        cx.notify();
+                    }),
+                )),
             );
         }
         if let Some(made_up) = self.offline_name.clone() {
