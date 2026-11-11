@@ -438,7 +438,7 @@ jobs:
       - name: The signature, checked as launchers check it
         run: |
           key=()
-          while IFS= read -r line; do
+          while IFS= read -r line || [[ -n "$line" ]]; do
             [[ -z "$line" || "$line" == \#* ]] && continue
             key+=(--key "$line")
           done < crates/horizon-release-sign/launcher-release-keys.txt
